@@ -1,0 +1,15 @@
+biopython>=1.79
+matplotlib>=3.5.1
+scipy>=1.7.3
+numpy>=1.21.5
+pysam>=0.19.1
+isort==5.12.0
+mypy==1.7.1
+mypy-extensions==1.0.0
+pdoc==14.3.0
+pre-commit==3.5.0
+pylint==3.0.2
+pytest==7.4.3
+setuptools==69.0.2
+typing_extensions==4.8.0
+yapf==0.40.2

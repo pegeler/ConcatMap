@@ -9,104 +9,18 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
+import subprocess
 
-import os
-import argparse
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from matplotlib import pyplot as plt
-import matplotlib.ticker as ticker
 from scipy.interpolate import interp1d
 import numpy as np
 import pysam
 
-__version__ = "1.0"
-
-def get_args(x):
-    x.add_argument("-q", "--fastq_file",
-                   type = str,
-                   default = None,
-                   metavar = '',
-                   help="Input path for fastq sequencing reads file [required].")
-    x.add_argument("-r", "--fasta_file",
-                   type = str,
-                   default = None,
-                   metavar = '',
-                   help="Input path for fasta reference file [required].")
-    x.add_argument("-o", "--output_dir",
-                   type = str,
-                   default = '',
-                   metavar = '',
-                   help = "Output directory for sam file and plot (default: same folder as input fastq file)")
-    x.add_argument("-n", "--output_file",
-                   type = str,
-                   default = '',
-                   metavar = '',
-                   help = "Output name for sam file and plot (default: same name as input fastq file)")
-    x.add_argument("-m", "--min_length",
-                   type = int,
-                   default = 100,
-                   metavar = '',
-                   help="Minimum mapped read length to plot (default: 100)")
-    x.add_argument("-u", "--unsorted",
-                   type = str,
-                   default = False,
-                   metavar = '',
-                   help="Plot from unsorted sam file (default: False - plot sorted sam file)")                   
-    x.add_argument("-l", "--line_spacing",
-                   type = float,
-                   default = 0.02,
-                   metavar = '',
-                   help = "Radial spacing of each read on plot (default: 0.2)")
-    x.add_argument("-w", "--line_width",
-                   type = float,
-                   default = 0.75,
-                   metavar = '',
-                   help = "Line width of each read on plot (default: 0.75)")
-    x.add_argument("-c", "--circle_size",
-                   type = float,
-                   default = 0.45,
-                   metavar = '',
-                   help = "Size of central circle (default: 0.45)")
-    x.add_argument("-s", "--fig_size",
-                   type = float,
-                   default = 10,
-                   metavar = '',
-                   help = "Size of figure (default: 10)")
-    x.add_argument("-x", "--clip",
-                  type = str,
-                  default = False,
-                  metavar = '',
-                  help = "Plot clipped portion of reads (default: False)")
-    x.add_argument("-f", "--figure_format",
-                   type = str,
-                   default = "pdf",
-                   metavar = '',
-                   help = "Format of saved figure, supported formats: eps, jpeg, jpg, pdf, pgf, png, ps, raw, rgba, svg, svgz, tif, tiff.")
-#####################
-    args = x.parse_args()
-    return args
-
-def str2bool(v):
-    if isinstance(v, bool):
-       return v
-    if v.lower() in ('True', 'yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('False', 'no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 def main():
-    # Parses command line arguments
-    argparser = argparse.ArgumentParser(description = "Map and plot reads against a circular reference (v" + __version__ +")\n" + \
-                                                  "by Daryl Gohl\n" + \
-                                                  "This program takes in a fasta reference file and a fastq sequencing file and concatenates the reference sequence (two copies of the reference sequence repeated in tandem) and then uses minimap2 to map reads to the concatenated reference, generating a .sam file that can be used for subsequent plotting.",
-                                    add_help = True,
-                                    epilog ='')
-    args = get_args(argparser)
-    args = vars(args)
 
     #Possible input args
     fastq_filename = args['fastq_file']
@@ -122,19 +36,8 @@ def main():
     Include_clipped = str2bool(args['clip'])
     Sorted_Unsorted = str2bool(args['unsorted'])
 
-    #Set output directory
-    if out_folder == '':
-      out_dir = os.path.dirname(fastq_filename)
-    else:
-      out_dir = out_folder
 
     os.chdir(out_dir)
-
-    #Set output file name
-    if out_file == '':
-      out_file = os.path.basename(fastq_filename)[:-6] + ".sam"
-    else:
-      out_file = out_file  + ".sam"
 
     #Read in reference and generate concatenated reference file
     refid = SeqIO.read(fasta_reference, "fasta").id
@@ -364,6 +267,3 @@ def main():
     fig_name = file
 
     plt.savefig(fig_name,bbox_inches='tight')
-
-if __name__ == "__main__":
-    main()

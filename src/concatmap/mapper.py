@@ -1,4 +1,8 @@
+"""
+Driver code for processing files and generating plots.
+
 MIT License
+-----------
 
 Copyright (c) 2025 Daryl Gohl, Paul Egeler
 
@@ -19,3 +23,36 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+"""
+import subprocess
+from enum import Enum
+from types import SimpleNamespace
+
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from matplotlib import pyplot as plt
+from scipy.interpolate import interp1d
+import numpy as np
+import pysam
+
+
+class OutputFormat(Enum):
+    eps = 'eps'
+    jpeg = 'jpeg'
+    jpg = 'jpg'
+    pdf = 'pdf'
+    pgf = 'pgf'
+    png = 'png'
+    ps = 'ps'
+    raw = 'raw'
+    rgba = 'rgba'
+    svg = 'svg'
+    svgz = 'svgz'
+    tif = 'tif'
+    tiff = 'tiff'
+
+
+def concatmap(args: SimpleNamespace) -> None:
+    # TODO: Change signature
+    ...
