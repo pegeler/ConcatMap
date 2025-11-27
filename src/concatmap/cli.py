@@ -11,29 +11,6 @@ This program takes in a fasta reference file and a fastq sequencing file and
 concatenates the reference sequence (two copies of the reference sequence
 repeated in tandem) and then uses minimap2 to map reads to the concatenated
 reference, generating a .sam file that can be used for subsequent plotting.
-
-MIT License
------------
-
-Copyright (c) 2025 Daryl Gohl, Paul Egeler
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 """
 import argparse
 
@@ -48,12 +25,12 @@ def parse_args(argv=None):
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument(
-        '-q', '--fastq_file',
+        '-q', '--query_file',
         required=True,
         type=Path,
         help='Input path for fastq sequencing reads file.')
     p.add_argument(
-        '-r', '--fasta_file',
+        '-r', '--reference_file',
         required=True,
         type=Path,
         help='Input path for fasta reference file.')
@@ -111,10 +88,10 @@ def parse_args(argv=None):
     args = p.parse_args(argv)
 
     if not args.output_dir:
-        args.output_dir = args.fastq_file.parent
+        args.output_dir = args.query_file.parent
 
     if not args.output_file:
-        args.output_file = args.fastq_file
+        args.output_file = args.query_file
     args.output_file = args.output_file.with_suffix('.sam')
 
     return args
