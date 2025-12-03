@@ -1,91 +1,38 @@
 """
 Driver code for processing files and generating plots.
 """
-import math
+import logging
 import subprocess
 from argparse import Namespace
 from collections.abc import Iterable
 from collections.abc import Iterator
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import NamedTuple
 
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-from matplotlib import pyplot as plt
-import numpy as np
 import pysam
 
-
-class OutputFormat(Enum):  # pylint: disable=invalid-name
-    eps = '.eps'
-    jpeg = '.jpeg'
-    jpg = '.jpg'
-    pdf = '.pdf'
-    pgf = '.pgf'
-    png = '.png'
-    ps = '.ps'
-    raw = '.raw'
-    rgba = '.rgba'
-    svg = '.svg'
-    svgz = '.svgz'
-    tif = '.tif'
-    tiff = '.tiff'
+from concatmap import plot
+from concatmap.struct import PolarCoordinate
+from concatmap.struct import PolarLineSegment
+from concatmap.struct import SamFileRead
+from concatmap.utils import PositionToAngleConverter
 
 
-class PositionToAngleConverter:
+def concat_sequence(record: SeqRecord) -> SeqRecord:
     """
-    Callable class that will convert a position to the angle component of
-    polar coordinates relative to the reference sequence length.
+    Concatenates a ``SeqRecord`` to itself.
+
+    :param record: The ``SeqRecord`` to be doubled.
+    :return: A new ``SeqRecord`` that is a concatenation of the original to
+            itself. The new record ID will have '_CONCAT' appended to it.
     """
-
-    def __init__(self, reference_length: int) -> None:
-        self.reference_length = reference_length
-        self.deg_per_base = 360 / reference_length
-
-    def __call__(self, pos: int) -> float:
-        return pos * self.deg_per_base
-
-
-@dataclass(slots=True, frozen=True)
-class PolarCoordinate:
-    """
-    Store polar coordinate pairs.
-
-    :ivar angle: The point's angular coordinate in degrees.
-    :ivar radius: The point's distance from the pole.
-    """
-    angle: float
-    radius: float
-
-    @property
-    def radians(self) -> float:
-        """
-        :return: Converted angular component in radians.
-        """
-        return self.angle * 2 * math.pi / 360
-
-    def get_pair(self, radians: bool = False) -> tuple[float, float]:
-        """
-        Get the ordered pair of angle and radius.
-
-        :param radians: Whether to report the angle in radians. Degrees is default.
-        :return: An ordered pair of (angle, radius).
-        """
-        return self.radians if radians else self.angle, self.radius
-
-
-@dataclass(slots=True, frozen=True)
-class PolarLineSegment:
-    """
-    Store a polar coordinate line segment.
-
-    :ivar start_coord: The start coordinate.
-    :ivar end_coord: The end coordinate.
-    """
-    start_coord: PolarCoordinate
-    end_coord: PolarCoordinate
+    new_id = record.id + '_CONCAT'
+    return SeqRecord(
+        record.seq * 2,
+        id=new_id,
+        name=new_id,
+        description='concatenated reference file for ConcatMap')
 
 
 def run_minimap(query_file: Path, reference_file: Path, sam_file: Path) -> None:
@@ -109,37 +56,21 @@ def run_minimap(query_file: Path, reference_file: Path, sam_file: Path) -> None:
     subprocess.run(cmd, check=True)
 
 
-def concat_sequence(record: SeqRecord) -> SeqRecord:
-    """
-    Concatenates a ``SeqRecord`` to itself.
-
-    :param record: The ``SeqRecord`` to be doubled.
-    :return: A new ``SeqRecord`` that is a concatenation of the original to
-            itself. The new record ID will have '_CONCAT' appended to it.
-    """
-    new_id = record.id + '_CONCAT'
-    return SeqRecord(
-        record.seq * 2,
-        id=new_id,
-        name=new_id,
-        description='concatenated reference file for ConcatMap')
-
-
-class SamFileRead(NamedTuple):
-    """
-    A container to hold start and end positions from the samfile.
-    """
-    reference_start: int
-    reference_end: int
-    clipped_start: int
-    clipped_end: int
-
-
 def read_samfile(
         sam_filename: Path,
         unsorted: bool,
         min_length: int,
 ) -> Iterator[SamFileRead]:
+    """
+    Generator that reads a *sam* file and yields a ``SamFileRead`` that contains
+    the reference start and end positions as well as the clipped base positions.
+
+    :param sam_filename: The file path.
+    :param unsorted: Whether to leave the *sam* file unsorted or run the
+            ``samtools`` sort.
+    :param min_length: Minimum read length to be retained.
+    :return: An iterator of ``SamFileRead``.
+    """
     if unsorted:
         samfile = pysam.AlignmentFile(sam_filename, 'r')
     else:
@@ -176,71 +107,19 @@ def convert_reads_to_line_segments(
         yield line_segment
 
 
-def _plot_line_segment(
-        ax: plt.Axes,
-        line_segment: PolarLineSegment,
-        n_points: int = 500,
-        *args,
-        **kwargs
-) -> None:
-    thetas = np.linspace(
-        line_segment.start_coord.radians,
-        line_segment.end_coord.radians,
-        n_points)
-    # NOTE: Originally radii was derived from `scipy.interp1d`, which has been
-    #       superseded by `np.interp`. However, current use-case does not
-    #       warrant it, as `np.linspace` should work.
-    radii = np.linspace(
-        line_segment.start_coord.radius,
-        line_segment.end_coord.radius,
-        n_points)
-    ax.plot(thetas, radii, *args, **kwargs)
-
-
-def plot(
-        line_segments: Iterable[PolarLineSegment],
-        fig_size: float,
-        line_spacing: float,
-        line_width: float,
-        circle_size: float,
-        clip: bool,
-        figure_file: Path,
-) -> None:
-    with plt.style.context('ggplot'):
-        fig = plt.figure(figsize=(fig_size, ) * 2)
-        ax = fig.add_subplot(111, polar=True)
-        ax.grid(False)
-        ax.set_rticks([])
-        ax.set_yticklabels([])
-        ax.set_xticklabels([])
-        ax.set_theta_zero_location('N')
-        ax.set_facecolor('white')
-        ax.axis('off')
-
-        basis_radius = circle_size - 2 * line_spacing
-        basis_curve = PolarLineSegment(
-            PolarCoordinate(0, basis_radius),
-            PolarCoordinate(360, basis_radius))
-        _plot_line_segment(ax, basis_curve, linewidth=5)
-
-        # TODO: Draw clipped reads
-
-        for line_segment in line_segments:
-            _plot_line_segment(ax, line_segment, color='grey', linewidth=line_width)
-
-    # TODO: Flip image so it is cw instead of ccw?
-    plt.savefig(figure_file, bbox_inches='tight')
-
-
-def concatmap(args: Namespace) -> None:
+def concatmap(args: Namespace, logger: logging.Logger) -> None:
+    logger.info('Reading reference file %s', args.reference_file)
     reference_record = SeqIO.read(args.reference_file, 'fasta')
 
     concat_record = concat_sequence(reference_record)
-    with open(f'{concat_record.id}.fasta', 'w') as fh:
+    concat_filename = f'{concat_record.id}.fasta'
+    logger.info('Writing concatenated file %s', concat_filename)
+    with open(concat_filename, 'w') as fh:
         SeqIO.write(concat_record, fh, 'fasta')
 
-    sam_filename = args.output_file.with_suffix('.sam')
+    sam_filename = args.output_file_stem.with_suffix('.sam')
 
+    logger.info('Running minimap2')
     run_minimap(args.query_file, Path(concat_record.id), sam_filename)
 
     reads = read_samfile(sam_filename, args.unsorted, args.min_length)
@@ -251,12 +130,14 @@ def concatmap(args: Namespace) -> None:
         args.circle_size,
     )
 
-    plot(
+    figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
+    logger.info('Plotting output to %s', figure_file)
+    plot.plot(
         line_segments,
         args.fig_size,
         args.line_spacing,
         args.line_width,
         args.circle_size,
         args.clip,
-        args.output_file.with_suffix(args.figure_format.value),
+        figure_file,
     )
