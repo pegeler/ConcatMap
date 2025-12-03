@@ -108,6 +108,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     if not args.output_dir:
         args.output_dir = args.query_file.parent
 
+    if not args.output_dir.is_dir():
+        raise RuntimeError(f'{args.output_dir} is not a directory')
+
     if not args.output_name:
         args.output_name = args.query_file.stem
     args.output_file_stem = args.output_dir / args.output_name

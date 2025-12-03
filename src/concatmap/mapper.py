@@ -112,7 +112,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     reference_record = SeqIO.read(args.reference_file, 'fasta')
 
     concat_record = concat_sequence(reference_record)
-    concat_filename = f'{concat_record.id}.fasta'
+    concat_filename = args.output_file_stem.with_name(f'{concat_record.id}.fasta')
     logger.info('Writing concatenated file %s', concat_filename)
     with open(concat_filename, 'w') as fh:
         SeqIO.write(concat_record, fh, 'fasta')
@@ -120,7 +120,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     sam_filename = args.output_file_stem.with_suffix('.sam')
 
     logger.info('Running minimap2')
-    run_minimap(args.query_file, Path(concat_record.id), sam_filename)
+    run_minimap(args.query_file, concat_filename, sam_filename)
 
     reads = read_samfile(sam_filename, args.unsorted, args.min_length)
     line_segments = convert_reads_to_line_segments(

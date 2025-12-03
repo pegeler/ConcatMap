@@ -28,7 +28,7 @@ pip install git+https://github.com/darylgohl/ConcatMap.git
 
 ```
 usage: concatmap [-h] -q QUERY_FILE -r REFERENCE_FILE [-o OUTPUT_DIR]
-                 [-n OUTPUT_FILE] [-m MIN_LENGTH] [-u] [-l LINE_SPACING]
+                 [-n OUTPUT_NAME] [-m MIN_LENGTH] [-u] [-l LINE_SPACING]
                  [-w LINE_WIDTH] [-c CIRCLE_SIZE] [-s FIG_SIZE] [-x]
                  [-f {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}]
 
@@ -54,7 +54,7 @@ options:
   -o OUTPUT_DIR, --output_dir OUTPUT_DIR
                         Output directory for sam file and plot (default: same
                         folder as input fastq file)
-  -n OUTPUT_FILE, --output_file OUTPUT_FILE
+  -n OUTPUT_NAME, --output_name OUTPUT_NAME
                         Output name for sam file and plot (default: same name
                         as input fastq file)
   -m MIN_LENGTH, --min_length MIN_LENGTH
