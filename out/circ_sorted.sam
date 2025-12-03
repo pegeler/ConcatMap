@@ -1,0 +1,3 @@
+@HD	VN:1.6	SO:unsorted	GO:query
+@SQ	SN:toy_plasmid_CONCAT	LN:88
+@PG	ID:minimap2	PN:minimap2	VN:2.30-r1287	CL:minimap2 --sam-hit-only -a toy_plasmid_CONCAT /mnt/c/Users/alext/CSCI 5481/Final Project/ConcatMap/ConcatMap/synthetic_reads/plasmid_circular.fastq

@@ -1,3 +1,23 @@
+Metadata-Version: 2.4
+Name: ConcatMap
+Version: 1.0.0
+Summary: A program to map and plot reads against a circular reference.
+Home-page: https://github.com/darylgohl/ConcatMap
+Author: Daryl Gohl
+Author-email: dmgohl@umn.edu
+License: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE.txt
+Requires-Dist: biopython>=1.79
+Requires-Dist: matplotlib>=3.5.1
+Requires-Dist: scipy>=1.7.3
+Requires-Dist: numpy>=1.21.5
+Requires-Dist: pysam>=0.19.1
+Dynamic: license-file
+
 # ConcatMap
 This program takes in a fasta reference file and a fastq sequencing file and concatenates the reference sequence (two copies of the reference sequence repeated in tandem) and then uses minimap2 to map reads to the concatenated reference, generating a .sam file that is used for subsequent plotting.
 

@@ -1,0 +1,12 @@
+LICENSE.txt
+README.md
+concatmapper.py
+pyproject.toml
+setup.cfg
+setup.py
+ConcatMap.egg-info/PKG-INFO
+ConcatMap.egg-info/SOURCES.txt
+ConcatMap.egg-info/dependency_links.txt
+ConcatMap.egg-info/entry_points.txt
+ConcatMap.egg-info/requires.txt
+ConcatMap.egg-info/top_level.txt
