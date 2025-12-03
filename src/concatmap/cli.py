@@ -87,6 +87,10 @@ def parse_args(argv=None):
 
     args = p.parse_args(argv)
 
+    # TODO: Revise output_dir strategy?
+    args.query_file = args.query_file.expanduser().resolve()
+    args.reference_file = args.reference_file.expanduser().resolve()
+
     if not args.output_dir:
         args.output_dir = args.query_file.parent
 
