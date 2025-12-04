@@ -12,7 +12,7 @@ authors = [
 ]
 description = 'A program to map and plot reads against a circular reference.'
 license = 'MIT'
-requires-python = '>=3.10'
+requires-python = '>=3.12'
 dynamic = ['readme']
 dependencies = [
     'biopython>=1.79',
