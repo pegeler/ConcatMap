@@ -112,9 +112,6 @@ def parse_args(argv=None) -> argparse.Namespace:
     if not args.output_dir:
         args.output_dir = args.query_file.parent
 
-    if not args.output_dir.is_dir():
-        raise RuntimeError(f'{args.output_dir} is not a directory')
-
     if not args.output_name:
         args.output_name = args.query_file.stem
     args.output_file_stem = args.output_dir / args.output_name
@@ -124,6 +121,12 @@ def parse_args(argv=None) -> argparse.Namespace:
 
 def main():
     args = parse_args()
+
+    output_dir: Path = args.output_dir
+    if output_dir.exists() and not output_dir.is_dir():
+        raise RuntimeError(f'{output_dir} is not a directory')
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     mapper.concatmap(args, get_logger(args.debug))
 
 
