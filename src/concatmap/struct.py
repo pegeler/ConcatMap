@@ -19,7 +19,7 @@ class PolarCoordinate:
         """
         :return: Converted angular component in degrees.
         """
-        return self.radians * 360 / (2 * math.pi)
+        return self.radians * 360 / math.tau
 
     def get_pair(self, radians: bool = False) -> tuple[float, float]:
         """
@@ -41,6 +41,14 @@ class PolarLineSegment:
     """
     start_coord: PolarCoordinate
     end_coord: PolarCoordinate
+
+    @property
+    def thetas(self) -> tuple[float, float]:
+        return self.start_coord.radians, self.end_coord.radians
+
+    @property
+    def radii(self) -> tuple[float, float]:
+        return self.start_coord.radius, self.end_coord.radius
 
 
 class SamFileRead(NamedTuple):

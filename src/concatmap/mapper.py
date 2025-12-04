@@ -90,14 +90,14 @@ def read_samfile(
 
 
 def compute_coverage(reads: Iterable[SamFileRead], reference_length: int) -> list[float]:
-    counts = [0] * reference_length
+    counts = [0.] * reference_length
     n = 0
     for read in reads:
         for i in range(read.reference_start - 1, read.reference_end):
             counts[i % reference_length] += 1
         n += 1
 
-    return [c / n for c in counts]
+    return [c / n for c in counts] if n else counts
 
 
 def convert_reads_to_line_segments(

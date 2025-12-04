@@ -39,17 +39,8 @@ def _plot_line_segment(
         *args,
         **kwargs
 ) -> None:
-    thetas = np.linspace(
-        line_segment.start_coord.radians,
-        line_segment.end_coord.radians,
-        n_points)
-    # NOTE: Originally radii was derived from `scipy.interp1d`, which has been
-    #       superseded by `np.interp`. However, current use-case does not
-    #       warrant it, as `np.linspace` should work.
-    radii = np.linspace(
-        line_segment.start_coord.radius,
-        line_segment.end_coord.radius,
-        n_points)
+    thetas = np.linspace(*line_segment.thetas, n_points)
+    radii = np.linspace(*line_segment.radii, n_points)
 
     if coverage is not None:
         # FIXME: This doesn't work.
@@ -72,7 +63,7 @@ class _CoverageInterpolator:
         self.angles = [conv(i) for i in range(len(coverage))]
 
     def __call__(self, angles: Array1D) -> Array1D:
-        return np.interp(angles % (2 * math.pi), self.angles, self.coverage)
+        return np.interp(angles % math.tau, self.angles, self.coverage)
 
 
 def plot(
@@ -100,7 +91,7 @@ def plot(
         basis_radius = circle_size - 2 * line_spacing
         basis_curve = PolarLineSegment(
             PolarCoordinate(0, basis_radius),
-            PolarCoordinate(360, basis_radius))
+            PolarCoordinate(math.tau, basis_radius))
         _plot_line_segment(ax, basis_curve, linewidth=5)
 
         # TODO: Draw clipped reads
