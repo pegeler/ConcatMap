@@ -8,18 +8,18 @@ class PolarCoordinate:
     """
     Store polar coordinate pairs.
 
-    :ivar radians: The point's angular coordinate in radians.
+    :ivar angle: The point's angular coordinate in degrees.
     :ivar radius: The point's distance from the pole.
     """
-    radians: float
+    angle: float
     radius: float
 
     @property
-    def degrees(self) -> float:
+    def radians(self) -> float:
         """
-        :return: Converted angular component in degrees.
+        :return: Converted angular component in radians.
         """
-        return self.radians * 360 / (2 * math.pi)
+        return self.angle * 2 * math.pi / 360
 
     def get_pair(self, radians: bool = False) -> tuple[float, float]:
         """
@@ -28,7 +28,7 @@ class PolarCoordinate:
         :param radians: Whether to report the angle in radians. Degrees is default.
         :return: An ordered pair of (angle, radius).
         """
-        return self.radians if radians else self.degrees, self.radius
+        return self.radians if radians else self.angle, self.radius
 
 
 @dataclass(slots=True, frozen=True)
