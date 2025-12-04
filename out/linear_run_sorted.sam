@@ -1,0 +1,4 @@
+@HD	VN:1.6	SO:coordinate
+@SQ	SN:pChlamy_SmaI-_L4417_PCR_Product_CONCAT	LN:14278
+@PG	ID:minimap2	PN:minimap2	VN:2.30-r1287	CL:minimap2 --sam-hit-only -a pChlamy_SmaI-_L4417_PCR_Product_CONCAT /mnt/c/Users/alext/CSCI 5481/Final Project/ConcatMap/ConcatMap/synthetic_reads/2QK7ZP_4_Linear_pChlamyGFPNo.1_ZM50_4.fastq
+@PG	ID:samtools	PN:samtools	PP:minimap2	VN:1.18 (pysam)	CL:samtools sort -o linear_run_sorted.sam linear_run.sam
