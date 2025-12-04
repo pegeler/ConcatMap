@@ -1,0 +1,4 @@
+@HD	VN:1.6	SO:coordinate
+@SQ	SN:synthetic_reference_CONCAT	LN:818
+@PG	ID:minimap2	PN:minimap2	VN:2.30-r1287	CL:minimap2 --sam-hit-only -a -o out/test_run.sam out/synthetic_reference_CONCAT.fasta synthetic_reads/test_reads.fastq
+@PG	ID:samtools	PN:samtools	PP:minimap2	VN:1.18 (pysam)	CL:samtools sort -o out/test_run_sorted.sam out/test_run.sam

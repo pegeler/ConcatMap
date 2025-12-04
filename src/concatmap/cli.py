@@ -93,15 +93,23 @@ def parse_args(argv=None) -> argparse.Namespace:
         help='Plot clipped portion of reads')
     p.add_argument(
         '-f', '--figure_format',
-        default='pdf',  # using string for default in help entry
+        default=plot.OutputFormat.pdf,  # use Enum, not string
         type=plot.OutputFormat.__getitem__,
         metavar=f'{{{",".join([ext.name for ext in plot.OutputFormat])}}}',
         choices=list(plot.OutputFormat),
-        help='Format of saved figure. (default: %(default)s)')
+        help='Format of saved figure. (default: %(default)s)'
+    )
+
     p.add_argument(
         '--debug',
         action='store_true',
         help=argparse.SUPPRESS)
+    
+    p.add_argument(
+        '--coverage',
+        action='store_true',
+        help='Color each read per base using coverage values'
+    )
 
     args = p.parse_args(argv)
 

@@ -97,7 +97,12 @@ def compute_coverage(reads: Iterable[SamFileRead], reference_length: int) -> lis
             counts[i % reference_length] += 1
         n += 1
 
+    if n == 0:
+        # No reads mapped → coverage is all zeros
+        return [0.0] * reference_length
+
     return [c / n for c in counts]
+
 
 
 def convert_reads_to_line_segments(
@@ -117,6 +122,28 @@ def convert_reads_to_line_segments(
                 basis_radius + line_spacing * i))
         yield line_segment
 
+def convert_reads_to_colored_segments(
+        reads: Iterable[SamFileRead],
+        reference_length: int,
+        line_spacing: float,
+        basis_radius: float,
+        coverage: list[float],
+) -> Iterator[list[tuple[PolarLineSegment, float]]]:
+    """
+    Convert each read into a list of per-base PolarLineSegments,
+    each paired with its coverage value.
+    """
+    pos_to_angle_converter = PositionToAngleConverter(reference_length)
+    for i, read in enumerate(reads):
+        radius = basis_radius + line_spacing * i
+        segments = []
+        for pos in range(read.reference_start, read.reference_end):
+            angle = pos_to_angle_converter(pos)
+            start = PolarCoordinate(angle, radius)
+            end = PolarCoordinate(angle, radius + 0.01)  # small outward tick
+            cov_val = coverage[pos % reference_length]
+            segments.append((PolarLineSegment(start, end), cov_val))
+        yield segments
 
 def concatmap(args: Namespace, logger: logging.Logger) -> None:
     logger.info('Reading reference file %s', args.reference_file)
@@ -134,17 +161,24 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     run_minimap(args.query_file, concat_filename, sam_filename)
 
     reads = list(read_samfile(sam_filename, args.unsorted, args.min_length))
-    line_segments = convert_reads_to_line_segments(
-        reads,
-        len(reference_record),
-        args.line_spacing,
-        args.circle_size,
-    )
 
-    coverage = (
-        compute_coverage(reads, len(reference_record))
-        if args.coverage else None
-    )
+    if args.coverage:
+        coverage = compute_coverage(reads, len(reference_record))
+        line_segments = convert_reads_to_colored_segments(
+            reads,
+            len(reference_record),
+            args.line_spacing,
+            args.circle_size,
+            coverage,
+        )
+    else:
+        coverage = None
+        line_segments = convert_reads_to_line_segments(
+            reads,
+            len(reference_record),
+            args.line_spacing,
+            args.circle_size,
+        )
 
     figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)
