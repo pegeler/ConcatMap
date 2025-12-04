@@ -1,6 +1,7 @@
 """
 Utility functions and classes.
 """
+import math
 import os
 from contextlib import contextmanager
 from pathlib import Path
@@ -24,7 +25,7 @@ class PositionToAngleConverter:
 
     def __init__(self, reference_length: int) -> None:
         self.reference_length = reference_length
-        self.deg_per_base = 360 / reference_length
+        self.rad_per_base = (2 * math.pi) / reference_length
 
     def __call__(self, pos: int) -> float:
-        return pos * self.deg_per_base
+        return (pos - 1) * self.rad_per_base

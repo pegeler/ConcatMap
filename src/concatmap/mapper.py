@@ -188,7 +188,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         line_spacing=args.line_spacing,
         line_width=args.line_width,
         circle_size=args.circle_size,
-        clip=args.clip,
+        include_clipped_reads=args.include_clipped_reads,
         figure_file=figure_file,
         coverage=coverage,
     )

@@ -1,13 +1,19 @@
+import math
 from collections.abc import Iterable
 from enum import Enum
 from pathlib import Path
 
+from matplotlib import cm
 from matplotlib import pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
+import numpy.typing as npt
 
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
+from concatmap.utils import PositionToAngleConverter
+
+type Array1D = npt.NDArray[tuple[int], np.float64]
 
 
 class OutputFormat(Enum):  # pylint: disable=invalid-name
@@ -39,7 +45,7 @@ def _plot_line_segment(
         ax: plt.Axes,
         line_segment: PolarLineSegment,
         n_points: int = 500,
-        coverage: list[float] = None,
+        coverage: list[int] | None = None,
         *args,
         **kwargs
 ) -> None:
@@ -56,20 +62,28 @@ def _plot_line_segment(
         line_segment.end_coord.radius,
         n_points)
 
-    if coverage is None:
-        # Default: single grey line
-        ax.plot(thetas, radii, *args, **kwargs)
-    else:
-        # Per-base coloring: draw each tiny segment separately
-        for i in range(len(thetas) - 1):
-            cov_val = coverage[i % len(coverage)]
-            color = coverage_to_color(cov_val)
-            ax.plot(
-                [thetas[i], thetas[i+1]],
-                [radii[i], radii[i+1]],
-                color=color,
-                linewidth=kwargs.get("linewidth", 0.5)
-            )
+    if coverage is not None:
+        # FIXME: This doesn't work.
+        coverage_interpolator = _CoverageInterpolator(coverage)
+        color = cm.plasma(coverage_interpolator(thetas))
+        for i, (t, r) in enumerate(zip(thetas, radii)):
+            kwargs['color'] = color[i, :]
+            ax.plot(t, r, *args, **kwargs)
+            return
+
+    ax.plot(thetas, radii, *args, **kwargs)
+
+
+class _CoverageInterpolator:
+
+    def __init__(self, coverage: list[float]):
+        self.coverage = coverage
+
+        conv = PositionToAngleConverter(len(coverage))
+        self.angles = [conv(i) for i in range(len(coverage))]
+
+    def __call__(self, angles: Array1D) -> Array1D:
+        return np.interp(angles % (2 * math.pi), self.angles, self.coverage)
 
 
 def plot(
@@ -79,7 +93,7 @@ def plot(
         line_spacing: float,
         line_width: float,
         circle_size: float,
-        clip: bool,
+        include_clipped_reads: bool,
         figure_file: Path,
         coverage: list[float] = None,
 ) -> None:
@@ -106,20 +120,14 @@ def plot(
 
         # TODO: Draw clipped reads if needed
 
-        if coverage is None:
-            # Default: grey lines
-            for line_segment in line_segments:
-                _plot_line_segment(ax, line_segment,
-                                   color='grey',
-                                   linewidth=line_width)
-        else:
-            # Coverage-aware: each read is a list of (segment, cov_value)
-            for read_segments in line_segments:
-                for segment, cov_val in read_segments:
-                    color = coverage_to_color(cov_val)
-                    _plot_line_segment(ax, segment,
-                                       color=color,
-                                       linewidth=line_width)
+        for line_segment in line_segments:
+            _plot_line_segment(
+                ax,
+                line_segment,
+                color='grey',
+                coverage=coverage,
+                linewidth=line_width
+            )
 
     # TODO: Flip image so it is cw instead of ccw?
     plt.savefig(figure_file, bbox_inches='tight')
