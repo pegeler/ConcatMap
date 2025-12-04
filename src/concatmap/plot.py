@@ -47,6 +47,7 @@ def _plot_line_segment(
 
 
 def plot(
+        *,
         line_segments: Iterable[PolarLineSegment],
         fig_size: float,
         line_spacing: float,
@@ -54,6 +55,7 @@ def plot(
         circle_size: float,
         clip: bool,
         figure_file: Path,
+        coverage: list[float] = None,
 ) -> None:
     with plt.style.context('ggplot'):
         fig = plt.figure(figsize=(fig_size, ) * 2)
