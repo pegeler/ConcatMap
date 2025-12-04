@@ -89,6 +89,17 @@ def read_samfile(
         yield SamFileRead(r.reference_start, r.reference_end, qs0, qe1)
 
 
+def compute_coverage(reads: Iterable[SamFileRead], reference_length: int) -> list[float]:
+    counts = [0] * reference_length
+    n = 0
+    for read in reads:
+        for i in range(read.reference_start - 1, read.reference_end):
+            counts[i % reference_length] += 1
+        n += 1
+
+    return [c / n for c in counts]
+
+
 def convert_reads_to_line_segments(
         reads: Iterable[SamFileRead],
         reference_length: int,
@@ -122,7 +133,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     logger.info('Running minimap2')
     run_minimap(args.query_file, concat_filename, sam_filename)
 
-    reads = read_samfile(sam_filename, args.unsorted, args.min_length)
+    reads = list(read_samfile(sam_filename, args.unsorted, args.min_length))
     line_segments = convert_reads_to_line_segments(
         reads,
         len(reference_record),
@@ -130,14 +141,20 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         args.circle_size,
     )
 
+    coverage = (
+        compute_coverage(reads, len(reference_record))
+        if args.coverage else None
+    )
+
     figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)
     plot.plot(
-        line_segments,
-        args.fig_size,
-        args.line_spacing,
-        args.line_width,
-        args.circle_size,
-        args.clip,
-        figure_file,
+        line_segments=line_segments,
+        fig_size=args.fig_size,
+        line_spacing=args.line_spacing,
+        line_width=args.line_width,
+        circle_size=args.circle_size,
+        include_clipped_reads=args.include_clipped_reads,
+        figure_file=figure_file,
+        coverage=coverage,
     )

@@ -88,9 +88,13 @@ def parse_args(argv=None) -> argparse.Namespace:
         default=10,
         help='Size of figure (default: %(default).2f)')
     p.add_argument(
-        '-x', '--clip',
+        '-x', '--include_clipped_reads',
         action='store_true',
         help='Plot clipped portion of reads')
+    p.add_argument(
+        '-v', '--coverage',
+        action='store_true',
+        help='Plot read line segments colored by coverage at each position')
     p.add_argument(
         '-f', '--figure_format',
         default='pdf',  # using string for default in help entry
