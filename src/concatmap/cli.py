@@ -108,12 +108,6 @@ def parse_args(argv=None) -> argparse.Namespace:
         '--debug',
         action='store_true',
         help=argparse.SUPPRESS)
-    
-    p.add_argument(
-        '--coverage',
-        action='store_true',
-        help='Color each read per base using coverage values'
-    )
 
     args = p.parse_args(argv)
 
