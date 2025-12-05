@@ -63,6 +63,7 @@ class _CoverageInterpolator:
 
     def __init__(self, coverage: list[float]):
         self.coverage = coverage
+        
         conv = PositionToAngleConverter(len(coverage))
         self.angles = [conv(i) for i in range(len(coverage))]
 
