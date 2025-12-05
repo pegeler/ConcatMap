@@ -1,10 +1,13 @@
 import math
 from collections.abc import Iterable
 from enum import Enum
+from itertools import pairwise
 from pathlib import Path
+from typing import Callable
 
 from matplotlib import cm
 from matplotlib import pyplot as plt
+from matplotlib.collections import LineCollection
 import numpy as np
 import numpy.typing as npt
 
@@ -34,24 +37,26 @@ class OutputFormat(Enum):  # pylint: disable=invalid-name
 def _plot_line_segment(
         ax: plt.Axes,
         line_segment: PolarLineSegment,
-        n_points: int = 500,
-        coverage: list[int] | None = None,
+        n_points: int = 200,
+        coverage_interpolator: Callable[[Array1D], Array1D] | None = None,
         *args,
         **kwargs
 ) -> None:
     thetas = np.linspace(*line_segment.thetas, n_points)
     radii = np.linspace(*line_segment.radii, n_points)
 
-    if coverage is not None:
-        # FIXME: This doesn't work.
-        coverage_interpolator = _CoverageInterpolator(coverage)
-        color = cm.plasma(coverage_interpolator(thetas))
-        for i, (t, r) in enumerate(zip(thetas, radii)):
-            kwargs['color'] = color[i, :]
-            ax.plot(t, r, *args, **kwargs)
-            return
-
-    ax.plot(thetas, radii, *args, **kwargs)
+    if coverage_interpolator is not None:
+        lines = list(pairwise(zip(thetas, radii)))
+        midpoints = np.array([(a + b) / 2 for (a, _), (b, _) in lines])
+        segments = LineCollection(
+            lines,
+            linewidths=kwargs['linewidth'],
+            colors=cm.plasma(coverage_interpolator(midpoints)),
+        )
+        ax.add_collection(segments)
+        ax.set_rmax(radii[0])
+    else:
+        ax.plot(thetas, radii, *args, **kwargs)
 
 
 class _CoverageInterpolator:
@@ -75,7 +80,7 @@ def plot(
         circle_size: float,
         include_clipped_reads: bool,
         figure_file: Path,
-        coverage: list[float] = None,
+        coverage: list[float] | None = None,
 ) -> None:
     with plt.style.context('ggplot'):
         fig = plt.figure(figsize=(fig_size, ) * 2)
@@ -92,16 +97,20 @@ def plot(
         basis_curve = PolarLineSegment(
             PolarCoordinate(0, basis_radius),
             PolarCoordinate(math.tau, basis_radius))
-        _plot_line_segment(ax, basis_curve, linewidth=5)
+        _plot_line_segment(ax, basis_curve, color='black', linewidth=5)
 
         # TODO: Draw clipped reads
+
+        cov_interp = None
+        if coverage is not None:
+            cov_interp = _CoverageInterpolator(coverage)
 
         for line_segment in line_segments:
             _plot_line_segment(
                 ax,
                 line_segment,
                 color='grey',
-                coverage=coverage,
+                coverage_interpolator=cov_interp,
                 linewidth=line_width
             )
 
