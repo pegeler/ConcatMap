@@ -17,7 +17,6 @@ import logging
 from pathlib import Path
 
 from concatmap import mapper
-from concatmap import utils
 from concatmap import plot
 
 
@@ -88,9 +87,13 @@ def parse_args(argv=None) -> argparse.Namespace:
         default=10,
         help='Size of figure (default: %(default).2f)')
     p.add_argument(
-        '-x', '--clip',
+        '-x', '--include_clipped_reads',
         action='store_true',
         help='Plot clipped portion of reads')
+    p.add_argument(
+        '-v', '--coverage',
+        action='store_true',
+        help='Plot read line segments colored by coverage at each position')
     p.add_argument(
         '-f', '--figure_format',
         default='pdf',  # using string for default in help entry
@@ -108,9 +111,6 @@ def parse_args(argv=None) -> argparse.Namespace:
     if not args.output_dir:
         args.output_dir = args.query_file.parent
 
-    if not args.output_dir.is_dir():
-        raise RuntimeError(f'{args.output_dir} is not a directory')
-
     if not args.output_name:
         args.output_name = args.query_file.stem
     args.output_file_stem = args.output_dir / args.output_name
@@ -120,6 +120,12 @@ def parse_args(argv=None) -> argparse.Namespace:
 
 def main():
     args = parse_args()
+
+    output_dir: Path = args.output_dir
+    if output_dir.exists() and not output_dir.is_dir():
+        raise RuntimeError(f'{output_dir} is not a directory')
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     mapper.concatmap(args, get_logger(args.debug))
 
 

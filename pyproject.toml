@@ -8,11 +8,10 @@ version = '2.0.0'
 authors = [
     {name = 'Daryl Gohl'},
     {name = 'Paul W. Egeler, M.S.'},
-    {name = 'Alex Thomas'},
 ]
 description = 'A program to map and plot reads against a circular reference.'
 license = 'MIT'
-requires-python = '>=3.10'
+requires-python = '>=3.12'
 dynamic = ['readme']
 dependencies = [
     'biopython>=1.79',

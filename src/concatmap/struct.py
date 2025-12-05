@@ -8,18 +8,18 @@ class PolarCoordinate:
     """
     Store polar coordinate pairs.
 
-    :ivar angle: The point's angular coordinate in degrees.
+    :ivar radians: The point's angular coordinate in radians.
     :ivar radius: The point's distance from the pole.
     """
-    angle: float
+    radians: float
     radius: float
 
     @property
-    def radians(self) -> float:
+    def degrees(self) -> float:
         """
-        :return: Converted angular component in radians.
+        :return: Converted angular component in degrees.
         """
-        return self.angle * 2 * math.pi / 360
+        return self.radians * 360 / math.tau
 
     def get_pair(self, radians: bool = False) -> tuple[float, float]:
         """
@@ -28,7 +28,7 @@ class PolarCoordinate:
         :param radians: Whether to report the angle in radians. Degrees is default.
         :return: An ordered pair of (angle, radius).
         """
-        return self.radians if radians else self.angle, self.radius
+        return self.radians if radians else self.degrees, self.radius
 
 
 @dataclass(slots=True, frozen=True)
@@ -41,6 +41,14 @@ class PolarLineSegment:
     """
     start_coord: PolarCoordinate
     end_coord: PolarCoordinate
+
+    @property
+    def thetas(self) -> tuple[float, float]:
+        return self.start_coord.radians, self.end_coord.radians
+
+    @property
+    def radii(self) -> tuple[float, float]:
+        return self.start_coord.radius, self.end_coord.radius
 
 
 class SamFileRead(NamedTuple):
