@@ -141,10 +141,15 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         args.circle_size,
     )
 
-    coverage = (
-        compute_coverage(reads, len(reference_record))
-        if args.coverage else None
-    )
+    coverage = None
+    if args.coverage is not None:
+        coverage = compute_coverage(reads, len(reference_record))
+        cov_filename = args.output_file_stem.with_name(
+            args.output_file_stem.name + '_coverage.csv')
+        logger.info('Writing coverage file to %s', cov_filename)
+        with open(cov_filename, 'w') as f:
+            for x in coverage:
+                f.write(f'{x}\n')
 
     figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)

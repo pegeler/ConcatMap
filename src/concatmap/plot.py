@@ -54,7 +54,7 @@ def _plot_line_segment(
             colors=cm.plasma(coverage_interpolator(midpoints)),
         )
         ax.add_collection(segments)
-        ax.set_rmax(radii[0])
+        ax.set_rmax(radii[0])  # TODO: just set this once at the end
     else:
         ax.plot(thetas, radii, *args, **kwargs)
 
