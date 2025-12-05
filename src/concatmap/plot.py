@@ -15,7 +15,7 @@ from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
 from concatmap.utils import PositionToAngleConverter
 
-type Array1D = npt.NDArray[tuple[int], np.float64]
+Array1D = npt.NDArray[np.float64]
 
 
 class OutputFormat(Enum):  # pylint: disable=invalid-name
@@ -63,11 +63,11 @@ class _CoverageInterpolator:
 
     def __init__(self, coverage: list[float]):
         self.coverage = coverage
-
         conv = PositionToAngleConverter(len(coverage))
         self.angles = [conv(i) for i in range(len(coverage))]
 
     def __call__(self, angles: Array1D) -> Array1D:
+        angles = np.asarray(angles)  # ensure numpy array
         return np.interp(angles % math.tau, self.angles, self.coverage)
 
 
