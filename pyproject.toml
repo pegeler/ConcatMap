@@ -8,7 +8,6 @@ version = '2.0.0'
 authors = [
     {name = 'Daryl Gohl'},
     {name = 'Paul W. Egeler, M.S.'},
-    {name = 'Alex Thomas'},
 ]
 description = 'A program to map and plot reads against a circular reference.'
 license = 'MIT'
