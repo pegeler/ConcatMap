@@ -17,7 +17,6 @@ import logging
 from pathlib import Path
 
 from concatmap import mapper
-from concatmap import utils
 from concatmap import plot
 
 
