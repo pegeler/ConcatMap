@@ -47,10 +47,10 @@ class CoverageInterpolator:
     def __call__(self, angles: Array1D) -> Array1D:
         return np.interp(angles % math.tau, self.angles, self.coverage)
 
-    def _normalize[T](self, xs: list[T]) -> list[T]:
+    def _normalize(self, xs: list[float]) -> list[float]:
         min_, max_ = self._minmax(xs)
         range_ = max_ - min_
-        return [(x - min_) / range_ for x in xs]
+        return [(x - min_) / range_ for x in xs] if range_ else [1.] * len(xs)
 
     @staticmethod
     def _minmax[T](xs: list[T]) -> tuple[T, T]:
