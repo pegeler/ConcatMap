@@ -95,6 +95,11 @@ def parse_args(argv=None) -> argparse.Namespace:
         action='store_true',
         help='Plot read line segments colored by coverage at each position')
     p.add_argument(
+        '--normalize-coverage',
+        dest='normalize',
+        action='store_true',
+        help='Normalize coverage values. Ignored if `--coverage` is unset.')
+    p.add_argument(
         '-f', '--figure_format',
         default='pdf',  # using string for default in help entry
         type=plot.OutputFormat.__getitem__,

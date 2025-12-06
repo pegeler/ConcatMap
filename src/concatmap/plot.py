@@ -9,13 +9,10 @@ from matplotlib import cm
 from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
 import numpy as np
-import numpy.typing as npt
 
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
-from concatmap.utils import PositionToAngleConverter
-
-type Array1D = npt.NDArray[tuple[int], np.float64]
+from concatmap.typing import Array1D
 
 
 class OutputFormat(Enum):  # pylint: disable=invalid-name
@@ -59,18 +56,6 @@ def _plot_line_segment(
         ax.plot(thetas, radii, *args, **kwargs)
 
 
-class _CoverageInterpolator:
-
-    def __init__(self, coverage: list[float]):
-        self.coverage = coverage
-
-        conv = PositionToAngleConverter(len(coverage))
-        self.angles = [conv(i) for i in range(len(coverage))]
-
-    def __call__(self, angles: Array1D) -> Array1D:
-        return np.interp(angles % math.tau, self.angles, self.coverage)
-
-
 def plot(
         *,
         line_segments: Iterable[PolarLineSegment],
@@ -80,7 +65,7 @@ def plot(
         circle_size: float,
         include_clipped_reads: bool,
         figure_file: Path,
-        coverage: list[float] | None = None,
+        coverage_interpolator: Callable[[Array1D], Array1D] | None = None,
 ) -> None:
     with plt.style.context('ggplot'):
         fig = plt.figure(figsize=(fig_size, ) * 2)
@@ -101,16 +86,12 @@ def plot(
 
         # TODO: Draw clipped reads
 
-        cov_interp = None
-        if coverage is not None:
-            cov_interp = _CoverageInterpolator(coverage)
-
         for line_segment in line_segments:
             _plot_line_segment(
                 ax,
                 line_segment,
                 color='grey',
-                coverage_interpolator=cov_interp,
+                coverage_interpolator=coverage_interpolator,
                 linewidth=line_width
             )
 
