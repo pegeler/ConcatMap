@@ -16,6 +16,7 @@ from concatmap import plot
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
 from concatmap.struct import SamFileRead
+from concatmap.utils import CoverageInterpolator
 from concatmap.utils import PositionToAngleConverter
 
 
@@ -141,7 +142,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         args.circle_size,
     )
 
-    coverage = None
+    cov_interp = None
     if args.coverage is not None:
         coverage = compute_coverage(reads, len(reference_record))
         cov_filename = args.output_file_stem.with_name(
@@ -150,6 +151,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         with open(cov_filename, 'w') as f:
             for x in coverage:
                 f.write(f'{x}\n')
+        cov_interp = CoverageInterpolator(coverage, args.normalize)
 
     figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)
@@ -161,5 +163,5 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         circle_size=args.circle_size,
         include_clipped_reads=args.include_clipped_reads,
         figure_file=figure_file,
-        coverage=coverage,
+        coverage_interpolator=cov_interp,
     )
