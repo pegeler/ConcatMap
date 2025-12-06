@@ -1,6 +1,7 @@
 """
 Driver code for processing files and generating plots.
 """
+import functools
 import logging
 import subprocess
 from argparse import Namespace
@@ -142,7 +143,9 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         args.circle_size,
     )
 
-    cov_interp = None
+    figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
+
+    plotter_class = plot.BasicPlotter
     if args.coverage:
         coverage = compute_coverage(reads, len(reference_record))
         cov_filename = args.output_file_stem.with_name(
@@ -151,11 +154,13 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         with open(cov_filename, 'w') as f:
             for x in coverage:
                 f.write(f'{x}\n')
-        cov_interp = CoverageInterpolator(coverage, args.normalize)
+        plotter_class = functools.partial(
+            plot.CoveragePlotter,
+            coverage_interpolator=CoverageInterpolator(coverage, args.normalize)
+        )
 
-    figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)
-    plotter = plot.Plotter(
+    plotter = plotter_class(
         line_segments=line_segments,
         fig_size=args.fig_size,
         line_spacing=args.line_spacing,
@@ -163,6 +168,5 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         circle_size=args.circle_size,
         include_clipped_reads=args.include_clipped_reads,
         figure_file=figure_file,
-        coverage_interpolator=cov_interp,
     )
     plotter.plot()

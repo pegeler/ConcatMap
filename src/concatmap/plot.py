@@ -1,3 +1,4 @@
+import abc
 import math
 from collections.abc import Iterable
 from enum import Enum
@@ -31,7 +32,9 @@ class OutputFormat(Enum):  # pylint: disable=invalid-name
     tiff = '.tiff'
 
 
-class Plotter:
+class AbstractPlotter(abc.ABC):
+
+    BASIS_COLOR = 'black'
 
     def __init__(
             self,
@@ -43,7 +46,6 @@ class Plotter:
             circle_size: float,
             include_clipped_reads: bool,
             figure_file: Path,
-            coverage_interpolator: Callable[[Array1D], Array1D] | None = None,
     ) -> None:
         self.line_segments = line_segments
         self.fig_size = fig_size
@@ -52,7 +54,16 @@ class Plotter:
         self.circle_size = circle_size
         self.include_clipped_reads = include_clipped_reads
         self.figure_file = figure_file
-        self.coverage_interpolator = coverage_interpolator
+
+    @abc.abstractmethod
+    def _drawLineSegment(
+            self,
+            ax: plt.Axes,
+            thetas: Array1D,
+            radii: Array1D,
+            **kwargs,
+    ) -> None:
+        ...
 
     def plot(self) -> None:
         with plt.style.context('ggplot'):
@@ -81,7 +92,7 @@ class Plotter:
             PolarCoordinate(0, basis_radius),
             PolarCoordinate(math.tau, basis_radius))
         thetas, radii = self._linearize(basis_curve)
-        ax.plot(thetas, radii, color='black', linewidth=5)
+        ax.plot(thetas, radii, color=self.BASIS_COLOR, linewidth=5)
 
     def _drawClippedReads(self, ax: plt.Axes) -> None:
         ...  # TODO
@@ -89,15 +100,7 @@ class Plotter:
     def _drawReads(self, ax: plt.Axes) -> None:
         for line_segment in self.line_segments:
             thetas, radii = self._linearize(line_segment)
-            if self.coverage_interpolator is not None:
-                self._plotCoverageLineSegment(
-                    ax,
-                    thetas,
-                    radii,
-                    linewidth=self.line_width
-                )
-            else:
-                ax.plot(thetas, radii, color='grey', linewidth=self.line_width)
+            self._drawLineSegment(ax, thetas, radii)
 
     def _linearize(
             self,
@@ -108,7 +111,36 @@ class Plotter:
         radii = np.linspace(*line_segment.radii, n_points)
         return thetas, radii
 
-    def _plotCoverageLineSegment(
+    def _saveFigure(self) -> None:
+        # TODO: Flip image so it is cw instead of ccw?
+        plt.savefig(self.figure_file, bbox_inches='tight')
+
+
+class BasicPlotter(AbstractPlotter):
+
+    LINE_COLOR = 'grey'
+
+    def _drawLineSegment(
+            self,
+            ax: plt.Axes,
+            thetas: Array1D,
+            radii: Array1D,
+            **kwargs,
+    ) -> None:
+        ax.plot(thetas, radii, color=self.LINE_COLOR, linewidth=self.line_width)
+
+
+class CoveragePlotter(AbstractPlotter):
+
+    def __init__(
+            self,
+            coverage_interpolator: Callable[[Array1D], Array1D],
+            **kwargs,
+    ) -> None:
+        self.coverage_interpolator = coverage_interpolator
+        super().__init__(**kwargs)
+
+    def _drawLineSegment(
             self,
             ax: plt.Axes,
             thetas: Array1D,
@@ -119,12 +151,8 @@ class Plotter:
         midpoints = np.array([(a + b) / 2 for (a, _), (b, _) in lines])
         segments = LineCollection(
             lines,
-            linewidths=kwargs['linewidth'],
+            linewidths=self.line_width,
             colors=cm.plasma(self.coverage_interpolator(midpoints)),
         )
         ax.add_collection(segments)
         ax.set_rmax(radii[0])  # TODO: just set this once at the end
-
-    def _saveFigure(self) -> None:
-        # TODO: Flip image so it is cw instead of ccw?
-        plt.savefig(self.figure_file, bbox_inches='tight')
