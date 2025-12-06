@@ -42,7 +42,7 @@ class CoverageInterpolator:
         self.coverage = self._normalize(coverage) if normalize else coverage
 
         conv = PositionToAngleConverter(len(coverage))
-        self.angles = [conv(i) for i in range(len(coverage))]
+        self.angles = [conv(i) for i, _ in enumerate(coverage, 1)]
 
     def __call__(self, angles: Array1D) -> Array1D:
         return np.interp(angles % math.tau, self.angles, self.coverage)
