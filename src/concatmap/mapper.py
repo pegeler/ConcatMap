@@ -143,7 +143,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     )
 
     cov_interp = None
-    if args.coverage is not None:
+    if args.coverage:
         coverage = compute_coverage(reads, len(reference_record))
         cov_filename = args.output_file_stem.with_name(
             args.output_file_stem.name + '_coverage.csv')
@@ -155,7 +155,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
 
     figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)
-    plot.plot(
+    plotter = plot.Plotter(
         line_segments=line_segments,
         fig_size=args.fig_size,
         line_spacing=args.line_spacing,
@@ -165,3 +165,4 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         figure_file=figure_file,
         coverage_interpolator=cov_interp,
     )
+    plotter.plot()
