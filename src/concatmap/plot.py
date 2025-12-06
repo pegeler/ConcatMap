@@ -34,7 +34,8 @@ class OutputFormat(Enum):  # pylint: disable=invalid-name
 
 class AbstractPlotter(abc.ABC):
 
-    BASIS_COLOR = 'black'
+    BASIS_LINEWIDTH = 5
+    BASIS_COLOR = 'red'
 
     def __init__(
             self,
@@ -92,7 +93,7 @@ class AbstractPlotter(abc.ABC):
             PolarCoordinate(0, basis_radius),
             PolarCoordinate(math.tau, basis_radius))
         thetas, radii = self._linearize(basis_curve)
-        ax.plot(thetas, radii, color=self.BASIS_COLOR, linewidth=5)
+        ax.plot(thetas, radii, color=self.BASIS_COLOR, linewidth=self.BASIS_LINEWIDTH)
 
     def _drawClippedReads(self, ax: plt.Axes) -> None:
         ...  # TODO
@@ -131,6 +132,8 @@ class BasicPlotter(AbstractPlotter):
 
 
 class CoveragePlotter(AbstractPlotter):
+
+    BASIS_COLOR = 'black'
 
     def __init__(
             self,
