@@ -143,9 +143,6 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         args.circle_size,
     )
 
-    figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
-
-    plotter_class = plot.BasicPlotter
     if args.coverage:
         coverage = compute_coverage(reads, len(reference_record))
         cov_filename = args.output_file_stem.with_name(
@@ -158,7 +155,10 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
             plot.CoveragePlotter,
             coverage_interpolator=CoverageInterpolator(coverage, args.normalize)
         )
+    else:
+        plotter_class = plot.BasicPlotter
 
+    figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)
     plotter = plotter_class(
         line_segments=line_segments,
