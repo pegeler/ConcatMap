@@ -33,7 +33,7 @@ class PositionToAngleConverter:
         self.rad_per_base = math.tau / reference_length
 
     def __call__(self, pos: int) -> float:
-        return (pos - 1) * self.rad_per_base
+        return pos * self.rad_per_base
 
 
 class CoverageInterpolator:
@@ -54,7 +54,7 @@ class CoverageInterpolator:
 
     @staticmethod
     def _minmax[T](xs: list[T]) -> tuple[T, T]:
-        def _go(minmax, x):
+        def f(minmax, x):
             min_, max_ = minmax
             return min(min_, x), max(max_, x)
-        return functools.reduce(_go, xs, (xs[0],) * 2)
+        return functools.reduce(f, xs, (xs[0],) * 2)

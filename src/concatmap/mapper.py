@@ -82,7 +82,7 @@ def read_samfile(
         samfile = pysam.AlignmentFile(sorted_sam_filename, 'r')
 
     for r in samfile.fetch(until_eof=True):
-        if r.reference_length < min_length:
+        if not r.is_mapped or r.reference_length < min_length:
             continue
         # Start position of clipped bases relative to the reference upstream
         qs0 = r.reference_start - r.query_alignment_start
@@ -92,10 +92,12 @@ def read_samfile(
 
 
 def compute_coverage(reads: Iterable[SamFileRead], reference_length: int) -> list[float]:
+    # TODO: Run ``samtools depth -aa del1_sorted.sam -l 1000 -o del1.cov``
+    #       first and then do the wrap-around count here.
     counts = [0.] * reference_length
     n = 0
     for read in reads:
-        for i in range(read.reference_start - 1, read.reference_end):
+        for i in range(read.reference_start, read.reference_end):
             counts[i % reference_length] += 1
         n += 1
 
@@ -115,7 +117,7 @@ def convert_reads_to_line_segments(
                 pos_to_angle_converter(read.reference_start),
                 basis_radius + line_spacing * i),
             PolarCoordinate(
-                pos_to_angle_converter(read.reference_end),
+                pos_to_angle_converter(read.reference_end - 1),
                 basis_radius + line_spacing * i))
         yield line_segment
 
