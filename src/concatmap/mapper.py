@@ -5,7 +5,6 @@ import functools
 import logging
 import subprocess
 from argparse import Namespace
-from collections.abc import Iterable
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -14,11 +13,8 @@ from Bio.SeqRecord import SeqRecord
 import pysam
 
 from concatmap import plot
-from concatmap.struct import PolarCoordinate
-from concatmap.struct import PolarLineSegment
 from concatmap.struct import SamFileRead
 from concatmap.utils import AngularCoordinatesInterpolator
-from concatmap.utils import PositionToAngleConverter
 from concatmap.utils import normalize
 
 # TODO: This module is starting to look like it would benefit from class encapsulation.
@@ -99,40 +95,21 @@ def read_samfile(
 
 
 def get_depths_at_positions(depth_file: Path, reference_length: int) -> list[float]:
+    """
+    Reads a depth file produced by ``samtools depth`` and returns a list of
+    counts for each position in the reference sequence. Concatenated reference
+    sequences are handled correctly, as positions will wrap around.
+
+    :param depth_file: The tab-separated file output by ``samtools depth``.
+    :param reference_length: The length of the reference sequence.
+    :return: A list of counts for each position in the reference sequence.
+    """
     counts = [0.] * reference_length
-    n = 0
     with open(depth_file, 'r') as fh:
         for line in fh:
             pos, count = map(int, line.strip().split('\t')[1:])
             counts[(pos - 1) % reference_length] += count
-            n += 1
-
-    if n != 2 * reference_length:
-        msg = 'Coverage file does not have the correct number of values'
-        raise RuntimeError(msg)
-
     return counts
-
-
-def convert_reads_to_line_segments(
-        reads: Iterable[SamFileRead],
-        reference_length: int,
-        line_spacing: float,
-        basis_radius: float,
-) -> Iterator[PolarLineSegment]:
-    # TODO: Move this function into AbstractPlotter. Line segments are only used
-    #       in the plotter class and it is the wrong level of abstraction for
-    #       activities in this module.
-    conv = PositionToAngleConverter(reference_length)
-    for i, read in enumerate(reads):
-        line_segment = PolarLineSegment(
-            PolarCoordinate(
-                conv(read.reference_start),
-                basis_radius + line_spacing * i),
-            PolarCoordinate(
-                conv(read.reference_end - 1),
-                basis_radius + line_spacing * i))
-        yield line_segment
 
 
 def concatmap(args: Namespace, logger: logging.Logger) -> None:
@@ -154,12 +131,6 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
 
     reads = list(read_samfile(sam_filename, args.unsorted, args.min_length, logger))
     logger.info('Read %d records from sam file', len(reads))
-    line_segments = convert_reads_to_line_segments(
-        reads,
-        len(reference_record),
-        args.line_spacing,
-        args.circle_size,
-    )
 
     if args.depth:
         # TODO: This should be refactored into two functions. Or better yet,
@@ -185,7 +156,8 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     figure_file = base_path.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)
     plotter = plotter_class(
-        line_segments=line_segments,
+        reads=reads,
+        reference_length=len(reference_record),
         fig_size=args.fig_size,
         line_spacing=args.line_spacing,
         line_width=args.line_width,

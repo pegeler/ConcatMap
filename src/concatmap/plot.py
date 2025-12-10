@@ -1,6 +1,6 @@
 import abc
 import math
-from collections.abc import Iterable
+from collections.abc import Iterator
 from enum import Enum
 from itertools import pairwise
 from pathlib import Path
@@ -13,8 +13,10 @@ import numpy as np
 
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
+from concatmap.struct import SamFileRead
 from concatmap.typing import Array1D
 from concatmap.utils import Debug
+from concatmap.utils import PositionToAngleConverter
 
 
 class OutputFormat(Enum):  # pylint: disable=invalid-name
@@ -41,7 +43,8 @@ class AbstractPlotter(abc.ABC):
     def __init__(
             self,
             *,
-            line_segments: Iterable[PolarLineSegment],
+            reads: list[SamFileRead],
+            reference_length: int,
             fig_size: float,
             line_spacing: float,
             line_width: float,
@@ -49,7 +52,9 @@ class AbstractPlotter(abc.ABC):
             include_clipped_reads: bool,
             figure_file: Path,
     ) -> None:
-        self.line_segments = line_segments
+        self.reads = reads
+        self.reference_length = reference_length
+        self.conv = PositionToAngleConverter(reference_length)
         self.fig_size = fig_size
         self.line_spacing = line_spacing
         self.line_width = line_width
@@ -100,12 +105,34 @@ class AbstractPlotter(abc.ABC):
         ...  # TODO
 
     def _drawReads(self, ax: plt.Axes) -> None:
-        for line_segment in self.line_segments:
+        line_segments = self._convertReadsToLineSegments(
+            self.reads, self.line_spacing, self.circle_size)
+        for line_segment in line_segments:
             thetas, radii = self._linearize(line_segment)
             self._drawLineSegment(ax, thetas, radii)
 
-    def _linearize(
+    def _saveFigure(self) -> None:
+        # TODO: Flip image so it is cw instead of ccw?
+        plt.savefig(self.figure_file, bbox_inches='tight')
+
+    def _convertReadsToLineSegments(
             self,
+            reads: list[SamFileRead],
+            line_spacing: float,
+            basis_radius: float,
+    ) -> Iterator[PolarLineSegment]:
+        for i, read in enumerate(reads, 1):
+            line_segment = PolarLineSegment(
+                PolarCoordinate(
+                    self.conv(read.reference_start),
+                    basis_radius + line_spacing * i),
+                PolarCoordinate(
+                    self.conv(read.reference_end - 1),
+                    basis_radius + line_spacing * i))
+            yield line_segment
+
+    @staticmethod
+    def _linearize(
             line_segment: PolarLineSegment,
             n_points: int = 200,
     ) -> tuple[Array1D, Array1D]:
@@ -114,10 +141,6 @@ class AbstractPlotter(abc.ABC):
         thetas = np.linspace(*line_segment.thetas, n_points)
         radii = np.linspace(*line_segment.radii, n_points)
         return thetas, radii
-
-    def _saveFigure(self) -> None:
-        # TODO: Flip image so it is cw instead of ccw?
-        plt.savefig(self.figure_file, bbox_inches='tight')
 
 
 class DefaultPlotter(AbstractPlotter):
