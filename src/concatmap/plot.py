@@ -14,6 +14,7 @@ import numpy as np
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
 from concatmap.typing import Array1D
+from concatmap.utils import Debug
 
 
 class OutputFormat(Enum):  # pylint: disable=invalid-name
@@ -108,6 +109,8 @@ class AbstractPlotter(abc.ABC):
             line_segment: PolarLineSegment,
             n_points: int = 200,
     ) -> tuple[Array1D, Array1D]:
+        if Debug().is_debug:
+            n_points = 100
         thetas = np.linspace(*line_segment.thetas, n_points)
         radii = np.linspace(*line_segment.radii, n_points)
         return thetas, radii
@@ -117,7 +120,7 @@ class AbstractPlotter(abc.ABC):
         plt.savefig(self.figure_file, bbox_inches='tight')
 
 
-class BasicPlotter(AbstractPlotter):
+class DefaultPlotter(AbstractPlotter):
 
     LINE_COLOR = 'grey'
 
@@ -131,16 +134,16 @@ class BasicPlotter(AbstractPlotter):
         ax.plot(thetas, radii, color=self.LINE_COLOR, linewidth=self.line_width)
 
 
-class CoveragePlotter(AbstractPlotter):
+class DepthPlotter(AbstractPlotter):
 
     BASIS_COLOR = 'black'
 
     def __init__(
             self,
-            coverage_interpolator: Callable[[Array1D], Array1D],
+            interpolator: Callable[[Array1D], Array1D],
             **kwargs,
     ) -> None:
-        self.coverage_interpolator = coverage_interpolator
+        self.interpolator = interpolator
         super().__init__(**kwargs)
 
     def _drawLineSegment(
@@ -155,7 +158,7 @@ class CoveragePlotter(AbstractPlotter):
         segments = LineCollection(
             lines,
             linewidths=self.line_width,
-            colors=cm.plasma(self.coverage_interpolator(midpoints)),
+            colors=cm.plasma(self.interpolator(midpoints)),
         )
         ax.add_collection(segments)
         ax.set_rmax(radii[0])  # TODO: just set this once at the end

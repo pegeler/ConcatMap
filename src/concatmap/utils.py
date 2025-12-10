@@ -6,10 +6,24 @@ import math
 import os
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Self
 
 import numpy as np
 
 from concatmap.typing import Array1D
+
+
+class Debug:
+    """
+    Singleton indicating whether this is a debug run.
+    """
+    _instance: Self | None = None
+    is_debug: bool = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
 
 
 @contextmanager
@@ -33,28 +47,40 @@ class PositionToAngleConverter:
         self.rad_per_base = math.tau / reference_length
 
     def __call__(self, pos: int) -> float:
-        return (pos - 1) * self.rad_per_base
+        return pos * self.rad_per_base
 
 
-class CoverageInterpolator:
+class AngularCoordinatesInterpolator:
 
-    def __init__(self, coverage: list[float], normalize: bool):
-        self.coverage = self._normalize(coverage) if normalize else coverage
-
-        conv = PositionToAngleConverter(len(coverage))
-        self.angles = [conv(i) for i, _ in enumerate(coverage, 1)]
+    def __init__(self, values: list[float]):
+        self.values = values
+        conv = PositionToAngleConverter(len(values))
+        self.angles = [conv(i) for i, _ in enumerate(values)]
 
     def __call__(self, angles: Array1D) -> Array1D:
-        return np.interp(angles % math.tau, self.angles, self.coverage)
+        return np.interp(angles % math.tau, self.angles, self.values)
 
-    def _normalize(self, xs: list[float]) -> list[float]:
-        min_, max_ = self._minmax(xs)
-        range_ = max_ - min_
-        return [(x - min_) / range_ for x in xs] if range_ else [1.] * len(xs)
 
-    @staticmethod
-    def _minmax[T](xs: list[T]) -> tuple[T, T]:
-        def _go(minmax, x):
-            min_, max_ = minmax
-            return min(min_, x), max(max_, x)
-        return functools.reduce(_go, xs, (xs[0],) * 2)
+def normalize(xs: list[float]) -> list[float]:
+    """
+    Scale the values of a list onto an interval [0, 1].
+
+    :param xs: The list to be normalized.
+    :return: A list the same length as the input.
+    """
+    min_, max_ = minmax(xs)
+    range_ = max_ - min_
+    return [(x - min_) / range_ for x in xs] if range_ else [1.] * len(xs)
+
+
+def minmax[T](xs: list[T]) -> tuple[T, T]:
+    """
+    Get the min and max of a list in one pass through the data.
+
+    :param xs: The list to be inspected.
+    :return: A tuple containing the minimum and maximum values in the list.
+    """
+    def f(mm, x):
+        min_, max_ = mm
+        return min(min_, x), max(max_, x)
+    return functools.reduce(f, xs, (xs[0],) * 2)

@@ -18,6 +18,7 @@ from pathlib import Path
 
 from concatmap import mapper
 from concatmap import plot
+from concatmap import utils
 
 
 def get_logger(debug: bool) -> logging.Logger:
@@ -50,55 +51,42 @@ def parse_args(argv=None) -> argparse.Namespace:
     p.add_argument(
         '-o', '--output_dir',
         type=Path,
-        help='Output directory for sam file and plot '
+        help='Output directory for sam file and plot. '
              '(default: same folder as input fastq file)')
     p.add_argument(
         '-n', '--output_name',
         type=Path,
-        help='Output name for sam file and plot '
+        help='Output name for sam file and plot. '
              '(default: same name as input fastq file)')
     p.add_argument(
         '-m', '--min_length',
         type=int,
         default=100,
-        help='Minimum mapped read length to plot (default: %(default)d)')
-    p.add_argument(
-        '-u', '--unsorted',
-        action='store_true',
-        help='Plot from unsorted sam file')
+        help='Minimum mapped read length to plot. (default: %(default)d)')
     p.add_argument(
         '-l', '--line_spacing',
         type=float,
         default=0.02,
-        help='Radial spacing of each read on plot (default: %(default).2f)')
+        help='Radial spacing of each read on plot. (default: %(default).2f)')
     p.add_argument(
         '-w', '--line_width',
         type=float,
         default=0.75,
-        help='Line width of each read on plot (default: %(default).2f)')
+        help='Line width of each read on plot. (default: %(default).2f)')
     p.add_argument(
         '-c', '--circle_size',
         type=float,
         default=0.45,
-        help='Size of central circle (default: %(default).2f)')
+        help='Size of central circle. (default: %(default).2f)')
     p.add_argument(
         '-s', '--fig_size',
         type=float,
         default=10,
-        help='Size of figure (default: %(default).2f)')
+        help='Size of figure. (default: %(default).2f)')
     p.add_argument(
         '-x', '--include_clipped_reads',
         action='store_true',
-        help='Plot clipped portion of reads')
-    p.add_argument(
-        '-v', '--coverage',
-        action='store_true',
-        help='Plot read line segments colored by coverage at each position')
-    p.add_argument(
-        '--normalize-coverage',
-        dest='normalize',
-        action='store_true',
-        help='Normalize coverage values. Ignored if `--coverage` is unset.')
+        help='Plot clipped portion of reads.')
     p.add_argument(
         '-f', '--figure_format',
         default='pdf',  # using string for default in help entry
@@ -106,6 +94,15 @@ def parse_args(argv=None) -> argparse.Namespace:
         metavar=f'{{{",".join([ext.name for ext in plot.OutputFormat])}}}',
         choices=list(plot.OutputFormat),
         help='Format of saved figure. (default: %(default)s)')
+    g = p.add_mutually_exclusive_group()
+    g.add_argument(
+        '-u', '--unsorted',
+        action='store_true',
+        help='Plot from unsorted sam file.')
+    g.add_argument(
+        '-d', '--depth',
+        action='store_true',
+        help='Plot read line segments colored by read depth at each position.')
     p.add_argument(
         '--debug',
         action='store_true',
@@ -119,6 +116,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     if not args.output_name:
         args.output_name = args.query_file.stem
     args.output_file_stem = args.output_dir / args.output_name
+
+    if args.debug:
+        utils.Debug().is_debug = True
 
     return args
 

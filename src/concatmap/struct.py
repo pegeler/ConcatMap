@@ -54,6 +54,9 @@ class PolarLineSegment:
 class SamFileRead(NamedTuple):
     """
     A container to hold start and end positions from the samfile.
+
+    Reference start and end follow Python convention of being zero-based and
+    half-open.
     """
     reference_start: int
     reference_end: int
