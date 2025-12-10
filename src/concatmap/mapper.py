@@ -130,7 +130,7 @@ def convert_reads_to_line_segments(
                 conv(read.reference_start),
                 basis_radius + line_spacing * i),
             PolarCoordinate(
-                conv(read.reference_end),
+                conv(read.reference_end - 1),
                 basis_radius + line_spacing * i))
         yield line_segment
 
