@@ -157,7 +157,7 @@ class DefaultPlotter(AbstractPlotter):
         ax.plot(thetas, radii, color=self.LINE_COLOR, linewidth=self.line_width)
 
 
-class DepthPlotter(AbstractPlotter):
+class MulticolorLinePlotter(AbstractPlotter):
 
     BASIS_COLOR = 'black'
 

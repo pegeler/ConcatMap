@@ -147,7 +147,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         )
         depths = get_depths_at_positions(depth_filename, len(reference_record))
         plotter_class = functools.partial(
-            plot.DepthPlotter,
+            plot.MulticolorLinePlotter,
             interpolator=AngularCoordinatesInterpolator(normalize(depths))
         )
     else:
