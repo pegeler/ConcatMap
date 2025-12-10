@@ -107,7 +107,7 @@ class AbstractPlotter(abc.ABC):
     def _linearize(
             self,
             line_segment: PolarLineSegment,
-            n_points: int = 500,
+            n_points: int = 200,
     ) -> tuple[Array1D, Array1D]:
         if Debug().is_debug:
             n_points = 100
