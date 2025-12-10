@@ -14,8 +14,6 @@ import pysam
 
 from concatmap import plot
 from concatmap.struct import SamFileRead
-from concatmap.utils import AngularCoordinatesInterpolator
-from concatmap.utils import normalize
 
 # TODO: This module is starting to look like it would benefit from class encapsulation.
 
@@ -146,10 +144,7 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
             '-o', str(depth_filename),
         )
         depths = get_depths_at_positions(depth_filename, len(reference_record))
-        plotter_class = functools.partial(
-            plot.MulticolorLinePlotter,
-            interpolator=AngularCoordinatesInterpolator(normalize(depths))
-        )
+        plotter_class = functools.partial(plot.MulticolorLinePlotter, values=depths)
     else:
         plotter_class = plot.DefaultPlotter
 

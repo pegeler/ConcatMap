@@ -15,8 +15,10 @@ from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
 from concatmap.struct import SamFileRead
 from concatmap.typing import Array1D
+from concatmap.utils import AngularCoordinatesInterpolator
 from concatmap.utils import Debug
 from concatmap.utils import PositionToAngleConverter
+from concatmap.utils import normalize
 
 
 class OutputFormat(Enum):  # pylint: disable=invalid-name
@@ -163,10 +165,21 @@ class MulticolorLinePlotter(AbstractPlotter):
 
     def __init__(
             self,
-            interpolator: Callable[[Array1D], Array1D],
+            values: Callable[[Array1D], Array1D] | list[float],
             **kwargs,
     ) -> None:
-        self.interpolator = interpolator
+        """
+        :param values: A callable that will provide a normalized color map
+                value (on the interval [0, 1]), given an angle in radians.
+                Possibly and instance of ``AngularCoordinatesInterpolator``.
+                Or a list of values for each reference sequence position to be
+                normalized and projected on the color map.
+        """
+        self.interpolator = (
+            values
+            if callable(values)
+            else AngularCoordinatesInterpolator(normalize(values))
+        )
         super().__init__(**kwargs)
 
     def _drawLineSegment(
