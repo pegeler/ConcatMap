@@ -98,10 +98,10 @@ def read_samfile(
         yield SamFileRead(r.reference_start, r.reference_end, qs0, qe1)
 
 
-def get_depths_at_positions(coverage_file: Path, reference_length: int) -> list[float]:
+def get_depths_at_positions(depth_file: Path, reference_length: int) -> list[float]:
     counts = [0.] * reference_length
     n = 0
-    with open(coverage_file, 'r') as fh:
+    with open(depth_file, 'r') as fh:
         for line in fh:
             pos, count = map(int, line.strip().split('\t')[1:])
             counts[(pos - 1) % reference_length] += count
