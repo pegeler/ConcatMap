@@ -17,8 +17,11 @@ from concatmap import plot
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
 from concatmap.struct import SamFileRead
-from concatmap.utils import CoverageInterpolator
+from concatmap.utils import AngularCoordinatesInterpolator
 from concatmap.utils import PositionToAngleConverter
+from concatmap.utils import normalize
+
+# TODO: This module is starting to look like it would benefit from class encapsulation.
 
 
 def concat_sequence(record: SeqRecord) -> SeqRecord:
@@ -62,6 +65,7 @@ def read_samfile(
         sam_filename: Path,
         unsorted: bool,
         min_length: int,
+        logger: logging.Logger | None = None,
 ) -> Iterator[SamFileRead]:
     """
     Generator that reads a *sam* file and yields a ``SamFileRead`` that contains
@@ -71,12 +75,15 @@ def read_samfile(
     :param unsorted: Whether to leave the *sam* file unsorted or run the
             ``samtools`` sort.
     :param min_length: Minimum read length to be retained.
+    :param logger: Optional logger.
     :return: An iterator of ``SamFileRead``.
     """
     if unsorted:
         samfile = pysam.AlignmentFile(sam_filename, 'r')
     else:
         sorted_sam_filename = sam_filename.with_stem(sam_filename.stem + '_sorted')
+        if logger:
+            logger.info('Writing sorted sam file to %s', sorted_sam_filename)
         pysam.samtools.sort(
             '-o', str(sorted_sam_filename), str(sam_filename), catch_stdout=False)
         samfile = pysam.AlignmentFile(sorted_sam_filename, 'r')
@@ -91,17 +98,20 @@ def read_samfile(
         yield SamFileRead(r.reference_start, r.reference_end, qs0, qe1)
 
 
-def compute_coverage(reads: Iterable[SamFileRead], reference_length: int) -> list[float]:
-    # TODO: Run ``samtools depth -aa del1_sorted.sam -l 1000 -o del1.cov``
-    #       first and then do the wrap-around count here.
+def get_depths_at_positions(coverage_file: Path, reference_length: int) -> list[float]:
     counts = [0.] * reference_length
     n = 0
-    for read in reads:
-        for i in range(read.reference_start, read.reference_end):
-            counts[i % reference_length] += 1
-        n += 1
+    with open(coverage_file, 'r') as fh:
+        for line in fh:
+            pos, count = map(int, line.strip().split('\t')[1:])
+            counts[(pos - 1) % reference_length] += count
+            n += 1
 
-    return [c / n for c in counts] if n else counts
+    if n != 2 * reference_length:
+        msg = 'Coverage file does not have the correct number of values'
+        raise RuntimeError(msg)
+
+    return counts
 
 
 def convert_reads_to_line_segments(
@@ -110,14 +120,17 @@ def convert_reads_to_line_segments(
         line_spacing: float,
         basis_radius: float,
 ) -> Iterator[PolarLineSegment]:
-    pos_to_angle_converter = PositionToAngleConverter(reference_length)
+    # TODO: Move this function into AbstractPlotter. Line segments are only used
+    #       in the plotter class and it is the wrong level of abstraction for
+    #       activities in this module.
+    conv = PositionToAngleConverter(reference_length)
     for i, read in enumerate(reads):
         line_segment = PolarLineSegment(
             PolarCoordinate(
-                pos_to_angle_converter(read.reference_start),
+                conv(read.reference_start),
                 basis_radius + line_spacing * i),
             PolarCoordinate(
-                pos_to_angle_converter(read.reference_end - 1),
+                conv(read.reference_end),
                 basis_radius + line_spacing * i))
         yield line_segment
 
@@ -126,18 +139,21 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     logger.info('Reading reference file %s', args.reference_file)
     reference_record = SeqIO.read(args.reference_file, 'fasta')
 
+    base_path = args.output_file_stem
+
     concat_record = concat_sequence(reference_record)
-    concat_filename = args.output_file_stem.with_name(f'{concat_record.id}.fasta')
+    concat_filename = base_path.with_name(f'{concat_record.id}.fasta')
     logger.info('Writing concatenated file %s', concat_filename)
     with open(concat_filename, 'w') as fh:
         SeqIO.write(concat_record, fh, 'fasta')
 
-    sam_filename = args.output_file_stem.with_suffix('.sam')
+    sam_filename = base_path.with_suffix('.sam')
 
     logger.info('Running minimap2')
     run_minimap(args.query_file, concat_filename, sam_filename)
 
-    reads = list(read_samfile(sam_filename, args.unsorted, args.min_length))
+    reads = list(read_samfile(sam_filename, args.unsorted, args.min_length, logger))
+    logger.info('Read %d records from sam file', len(reads))
     line_segments = convert_reads_to_line_segments(
         reads,
         len(reference_record),
@@ -145,22 +161,28 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         args.circle_size,
     )
 
-    if args.coverage:
-        coverage = compute_coverage(reads, len(reference_record))
-        cov_filename = args.output_file_stem.with_name(
-            args.output_file_stem.name + '_coverage.csv')
-        logger.info('Writing coverage file to %s', cov_filename)
-        with open(cov_filename, 'w') as f:
-            for x in coverage:
-                f.write(f'{x}\n')
+    if args.depth:
+        # TODO: This should be refactored into two functions. Or better yet,
+        #       we should make a ConcatMapper class and these could be private
+        #       methods within it.
+        sorted_sam_filename = sam_filename.with_stem(sam_filename.stem + '_sorted')
+        depth_filename = base_path.with_name(base_path.stem + '_depth.tsv')
+        logger.info('Writing depth file to %s', depth_filename)
+        pysam.samtools.depth(
+            '-aa',
+            str(sorted_sam_filename),
+            '-l', str(args.min_length),
+            '-o', str(depth_filename),
+        )
+        depths = get_depths_at_positions(depth_filename, len(reference_record))
         plotter_class = functools.partial(
-            plot.CoveragePlotter,
-            coverage_interpolator=CoverageInterpolator(coverage, args.normalize)
+            plot.DepthPlotter,
+            interpolator=AngularCoordinatesInterpolator(normalize(depths))
         )
     else:
-        plotter_class = plot.BasicPlotter
+        plotter_class = plot.DefaultPlotter
 
-    figure_file = args.output_file_stem.with_suffix(args.figure_format.value)
+    figure_file = base_path.with_suffix(args.figure_format.value)
     logger.info('Plotting output to %s', figure_file)
     plotter = plotter_class(
         line_segments=line_segments,
