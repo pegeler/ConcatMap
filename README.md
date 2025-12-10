@@ -28,10 +28,10 @@ pip install git+https://github.com/darylgohl/ConcatMap.git
 
 ```
 usage: concatmap [-h] -q QUERY_FILE -r REFERENCE_FILE [-o OUTPUT_DIR]
-                 [-n OUTPUT_NAME] [-m MIN_LENGTH] [-u] [-l LINE_SPACING]
-                 [-w LINE_WIDTH] [-c CIRCLE_SIZE] [-s FIG_SIZE] [-x] [-v]
-                 [--normalize-coverage]
+                 [-n OUTPUT_NAME] [-m MIN_LENGTH] [-l LINE_SPACING]
+                 [-w LINE_WIDTH] [-c CIRCLE_SIZE] [-s FIG_SIZE] [-x]
                  [-f {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}]
+                 [-u | -d]
 
 ConcatMap Command Line Interface
 ================================
@@ -53,30 +53,28 @@ options:
   -r REFERENCE_FILE, --reference_file REFERENCE_FILE
                         Input path for fasta reference file.
   -o OUTPUT_DIR, --output_dir OUTPUT_DIR
-                        Output directory for sam file and plot (default: same
+                        Output directory for sam file and plot. (default: same
                         folder as input fastq file)
   -n OUTPUT_NAME, --output_name OUTPUT_NAME
-                        Output name for sam file and plot (default: same name
+                        Output name for sam file and plot. (default: same name
                         as input fastq file)
   -m MIN_LENGTH, --min_length MIN_LENGTH
-                        Minimum mapped read length to plot (default: 100)
-  -u, --unsorted        Plot from unsorted sam file
+                        Minimum mapped read length to plot. (default: 100)
   -l LINE_SPACING, --line_spacing LINE_SPACING
-                        Radial spacing of each read on plot (default: 0.02)
+                        Radial spacing of each read on plot. (default: 0.02)
   -w LINE_WIDTH, --line_width LINE_WIDTH
-                        Line width of each read on plot (default: 0.75)
+                        Line width of each read on plot. (default: 0.75)
   -c CIRCLE_SIZE, --circle_size CIRCLE_SIZE
-                        Size of central circle (default: 0.45)
+                        Size of central circle. (default: 0.45)
   -s FIG_SIZE, --fig_size FIG_SIZE
-                        Size of figure (default: 10.00)
+                        Size of figure. (default: 10.00)
   -x, --include_clipped_reads
-                        Plot clipped portion of reads
-  -v, --coverage        Plot read line segments colored by coverage at each
-                        position
-  --normalize-coverage  Normalize coverage values. Ignored if `--coverage` is
-                        unset.
+                        Plot clipped portion of reads.
   -f {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}, --figure_format {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}
                         Format of saved figure. (default: pdf)
+  -u, --unsorted        Plot from unsorted sam file.
+  -d, --depth           Plot read line segments colored by read depth at each
+                        position.
 ```
 
 ### Example
