@@ -40,6 +40,13 @@ class PositionToAngleConverter:
     """
     Callable class that will convert a position to the angle component of
     polar coordinates relative to the reference sequence length.
+
+    The result is intentionally not wrapped to ``[0, tau)``: positions in the
+    second concatenated copy, and negative clip projections that fall before the
+    origin, return angles outside that range. Matplotlib's polar axes wrap them
+    at render time, which is what lets origin-spanning reads draw as continuous
+    arcs. Do not add a modulo here --- the clip-span guard in the plotter relies
+    on the raw, unwrapped span.
     """
 
     def __init__(self, reference_length: int) -> None:
@@ -53,9 +60,14 @@ class PositionToAngleConverter:
 class AngularCoordinatesInterpolator:
 
     def __init__(self, values: list[float]):
-        self.values = values
+        self.values = values[:]
         conv = PositionToAngleConverter(len(values))
         self.angles = [conv(i) for i, _ in enumerate(values)]
+        # Close the loop with a sample at tau equal to position 0, so query
+        # angles past the last position interpolate across the origin instead of
+        # clamping to the last value (which left a one-bin color seam at North).
+        self.angles.append(math.tau)
+        self.values.append(self.values[0])
 
     def __call__(self, angles: Array1D) -> Array1D:
         return np.interp(angles % math.tau, self.angles, self.values)

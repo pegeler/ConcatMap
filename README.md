@@ -90,6 +90,57 @@ concatmap -q <PathToFASTQFile/InputFileName> \
 
 [![DOI: 10.1093/g3journal/jkab423](https://cdn.ncbi.nlm.nih.gov/pmc/blobs/9816/9210306/ed0056d2704b/jkab423f2.jpg)](https://pubmed.ncbi.nlm.nih.gov/34897429/#&gid=article-figures&pid=figure-2-uid-1)
 
+## Scope and Limitations
+
+ConcatMap projects each read (and, with `-x`, its clipped bases) linearly onto a
+circular reference, one read base per reference position. This assumption breaks
+down in a few cases:
+
+- **Clips longer than the reference.** The clipped portion of a read is
+  unaligned, so projecting it along the reference is only meaningful when it is
+  shorter than the reference. Reads whose clipped span exceeds the reference
+  length --- for example nanopore concatemers, chimeric/fusion reads, or long
+  reads that align only locally --- would sweep past a full turn and overlap
+  themselves into a misleading ring. Their clip arc is omitted (the mapped
+  portion is still plotted). This tool is not intended for such reads.
+- **Large references.** Bacterial chromosomes and other large genomes produce a
+  dense, hard-to-read spiral; ConcatMap targets small circular references
+  (organellar genomes, plasmids, viral genomes).
+- **Very high read counts.** Each read occupies its own concentric ring, so deep
+  datasets eventually overplot. Subsample, or use `-m` to raise the minimum
+  read length.
+
+## Migration Guide
+
+The command-line interface was reworked in version 2.0. The boolean string
+toggles of the legacy interface (for example `-u T` / `-x f`) are now ordinary
+flags: present means on, absent means off. All other options keep their short
+names and meanings. The table below maps the legacy flags to the new ones.
+
+| Legacy            | New        | Notes                                                |
+| ----------------- | ---------- | ---------------------------------------------------- |
+| `-u T` / `-u F`   | `-u` / _omit_ | `--unsorted` is now a flag; sorted is the default. |
+| `-x t` / `-x f`   | `-x` / _omit_ | `--include_clipped_reads`; present means on.       |
+| `-f "png"`        | `-f png`   | Now a validated format name; quotes optional.        |
+| `-m -c -l -w -s`  | unchanged  | Same short names and meanings.                       |
+| `-q -r -o -n`     | unchanged  | Same short names and meanings.                       |
+| _(none)_          | `-d`       | New `--depth` mode; colors reads by per-position depth. Mutually exclusive with `-u`. |
+
+For example, the legacy invocation
+
+```bash
+ConcatMap -u F -x t -f "png" -m 1000 -q reads.fastq -r ref.fasta -n out
+```
+
+becomes
+
+```bash
+concatmap -x -f png -m 1000 -q reads.fastq -r ref.fasta -n out
+```
+
+(`-u F` is dropped because sorted is the default, and `-x t` becomes a bare
+`-x`).
+
 ## Reference
 
 <!-- TODO: Link to paper and include some figures -->

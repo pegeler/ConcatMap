@@ -15,6 +15,9 @@ import pysam
 from concatmap import plot
 from concatmap.struct import SamFileRead
 
+# Leading/trailing CIGAR operations representing clipped (unaligned) bases.
+CLIP_OPS = frozenset({pysam.CSOFT_CLIP, pysam.CHARD_CLIP})
+
 # TODO: This module is starting to look like it would benefit from class encapsulation.
 
 
@@ -83,13 +86,31 @@ def read_samfile(
         samfile = pysam.AlignmentFile(sorted_sam_filename, 'r')
 
     for r in samfile.fetch(until_eof=True):
-        if not r.is_mapped or r.reference_length < min_length:
+        # Skip secondary alignments (alternative placements of the same read).
+        # Supplementary (split-read) alignments are kept: they carry the other
+        # half of origin-spanning and deletion-junction reads. NOTE: v1.x
+        # filtered neither. ``samtools depth`` (used by --depth) applies the
+        # same policy by default, so the depth and line views agree on which
+        # reads contribute.
+        if not r.is_mapped or r.is_secondary or r.reference_length < min_length:
             continue
-        # Start position of clipped bases relative to the reference upstream
-        qs0 = r.reference_start - r.query_alignment_start
-        # End position of clipped bases relative to the reference downstream
-        qe1 = r.reference_end + r.infer_read_length() - r.query_alignment_end
-        yield SamFileRead(r.reference_start, r.reference_end, qs0, qe1)
+        # Take clip extents from the leading/trailing CIGAR clip ops so soft (S)
+        # and hard (H) clips are handled uniformly. NOTE: do not derive these
+        # from query_alignment_start/end and infer_read_length() --- those mix
+        # read-coordinate systems (H excluded vs. included) and misproject a
+        # leading hard clip onto the downstream end.
+        cigar = r.cigartuples
+        lead = cigar[0][1] if cigar[0][0] in CLIP_OPS else 0
+        trail = cigar[-1][1] if cigar[-1][0] in CLIP_OPS else 0
+        # Clipped-base positions projected onto the reference up/downstream.
+        clipped_start = r.reference_start - lead
+        clipped_end = r.reference_end + trail
+        yield SamFileRead(
+            r.reference_start,
+            r.reference_end,
+            clipped_start,
+            clipped_end,
+        )
 
 
 def get_depths_at_positions(depth_file: Path, reference_length: int) -> list[float]:
@@ -117,7 +138,11 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     base_path = args.output_file_stem
 
     concat_record = concat_sequence(reference_record)
-    concat_filename = base_path.with_name(f'{concat_record.id}.fasta')
+    # Scope the concatenated fasta to this run's output stem. NOTE: v1.x named
+    # it after the reference sequence id (ignoring -n), so repeated runs against
+    # one reference overwrote a single shared file. The record id still carries
+    # the '_CONCAT' suffix and becomes the reference name in the sam file.
+    concat_filename = base_path.with_name(f'{base_path.stem}_concat.fasta')
     logger.info('Writing concatenated file %s', concat_filename)
     with open(concat_filename, 'w') as fh:
         SeqIO.write(concat_record, fh, 'fasta')
@@ -137,6 +162,10 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         sorted_sam_filename = sam_filename.with_stem(sam_filename.stem + '_sorted')
         depth_filename = base_path.with_name(base_path.stem + '_depth.tsv')
         logger.info('Writing depth file to %s', depth_filename)
+        # samtools depth's default flag filtering matches read_samfile (drops
+        # secondary, keeps supplementary). NOTE: -l filters on read length while
+        # the plotted lines filter on reference span, so the depth and line
+        # views can disagree slightly for heavily clipped reads.
         pysam.samtools.depth(
             '-aa',
             str(sorted_sam_filename),

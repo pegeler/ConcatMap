@@ -21,6 +21,20 @@ from concatmap.utils import PositionToAngleConverter
 from concatmap.utils import normalize
 
 
+def mapped_endpoints(read: SamFileRead) -> tuple[int, int]:
+    """
+    Inclusive reference start/end of the aligned portion of a read.
+    """
+    return read.reference_start, read.reference_end - 1
+
+
+def clipped_endpoints(read: SamFileRead) -> tuple[int, int]:
+    """
+    Inclusive reference start/end of the read including clipped bases.
+    """
+    return read.clipped_start, read.clipped_end - 1
+
+
 class OutputFormat(Enum):  # pylint: disable=invalid-name
     eps = '.eps'
     jpeg = '.jpeg'
@@ -41,6 +55,7 @@ class AbstractPlotter(abc.ABC):
 
     BASIS_LINEWIDTH = 5
     BASIS_COLOR = 'red'
+    CLIPPED_COLOR = 'red'
 
     def __init__(
             self,
@@ -104,7 +119,25 @@ class AbstractPlotter(abc.ABC):
         ax.plot(thetas, radii, color=self.BASIS_COLOR, linewidth=self.BASIS_LINEWIDTH)
 
     def _drawClippedReads(self, ax: plt.Axes) -> None:
-        ...  # TODO
+        # Clipped portions are drawn before (under) the mapped reads at the same
+        # radius, so the mapped arc overlays the clip and only the overhanging
+        # clipped bases remain visible. Always a flat color (no depth map), to
+        # keep the clip distinct from the mapped read.
+        line_segments = self._convertReadsToLineSegments(
+            self.reads,
+            self.line_spacing,
+            self.circle_size,
+            endpoints=clipped_endpoints)
+        for line_segment in line_segments:
+            thetas, radii = self._linearize(line_segment)
+            # A clip longer than the reference projects to an arc that sweeps
+            # past a full turn and self-overlaps into a misleading ring. Such
+            # reads (e.g. nanopore concatemers/chimeras far longer than the
+            # genome) are out of scope, so skip the clip arc; the mapped portion
+            # is still drawn by _drawReads.
+            if abs(thetas[-1] - thetas[0]) > math.tau:
+                continue
+            ax.plot(thetas, radii, color=self.CLIPPED_COLOR, linewidth=self.line_width)
 
     def _drawReads(self, ax: plt.Axes) -> None:
         line_segments = self._convertReadsToLineSegments(
@@ -122,16 +155,14 @@ class AbstractPlotter(abc.ABC):
             reads: list[SamFileRead],
             line_spacing: float,
             basis_radius: float,
+            endpoints: Callable[[SamFileRead], tuple[int, int]] = mapped_endpoints,
     ) -> Iterator[PolarLineSegment]:
         for i, read in enumerate(reads, 1):
-            line_segment = PolarLineSegment(
-                PolarCoordinate(
-                    self.conv(read.reference_start),
-                    basis_radius + line_spacing * i),
-                PolarCoordinate(
-                    self.conv(read.reference_end - 1),
-                    basis_radius + line_spacing * i))
-            yield line_segment
+            start, end = endpoints(read)
+            radius = basis_radius + line_spacing * i
+            yield PolarLineSegment(
+                PolarCoordinate(self.conv(start), radius),
+                PolarCoordinate(self.conv(end), radius))
 
     @staticmethod
     def _linearize(
@@ -162,6 +193,7 @@ class DefaultPlotter(AbstractPlotter):
 class MulticolorLinePlotter(AbstractPlotter):
 
     BASIS_COLOR = 'black'
+    CLIPPED_COLOR = 'grey'
 
     def __init__(
             self,
