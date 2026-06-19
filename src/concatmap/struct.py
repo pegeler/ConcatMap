@@ -71,6 +71,6 @@ class SamFileRead(NamedTuple):
              also clipped bases.
         :return: A tuple representing start and end, inclusive.
         """
-        slice_ = slice(2, 4) if include_clipped else slice(2)
-        start, end = self[slice_]
-        return start, end - 1
+        if include_clipped:
+            return self.clipped_start, self.clipped_end - 1
+        return self.reference_start, self.reference_end - 1

@@ -5,11 +5,12 @@
 
 ## Context
 
-I could either use slices into `self` or construct the attribute from
-`StrEnum`s and then use `getattr` to access the start/end position for
-each read type. Here are the example implementations:
+Three candidate implementations were considered for dispatching on `include_clipped`
+to return the correct start/end pair from `SamFileRead`.
 
 ### Using `getattr()`
+
+Construct attribute names from `StrEnum`s and access fields dynamically.
 
 ```python
 import enum
@@ -60,7 +61,9 @@ class SamFileRead(NamedTuple):
         return getattr(self, f'{endpoint_type}_{terminus_type}')
 ```
 
-## Using `self` with slices
+### Using `self` with slices
+
+Exploit the `NamedTuple` sequence interface, selecting fields by positional slice.
 
 ```python
 from typing import NamedTuple
@@ -91,13 +94,55 @@ class SamFileRead(NamedTuple):
         return start, end - 1
 ```
 
+### Using explicit `if/else` with named attributes
+
+Branch on the flag and access fields by name directly.
+
+```python
+from typing import NamedTuple
+
+
+class SamFileRead(NamedTuple):
+    """
+    A container to hold start and end positions from the samfile.
+
+    Reference start and end follow Python convention of being zero-based and
+    half-open.
+    """
+    reference_start: int
+    reference_end: int
+    clipped_start: int
+    clipped_end: int
+
+    def getEndpoints(self, include_clipped: bool = False) -> tuple[int, int]:
+        """
+        Inclusive reference start/end of the read.
+
+         :param include_clipped: Whether to include just mapped bases or
+             also clipped bases.
+        :return: A tuple representing start and end, inclusive.
+        """
+        if include_clipped:
+            return self.clipped_start, self.clipped_end - 1
+        return self.reference_start, self.reference_end - 1
+```
+
 ## Decision
 
-Using `self` with slices.
+Using explicit `if/else` with named attributes.
 
 ## Rationale
 
-The number and types of fields we are likely to store in `SameFileRead` are
-limited right now. The `self` with slice option is simpler, but less explicit.
-That is fine as long as `SamFileRead` is a simple container for two pairs of
-values. If the data we collect becomes richer, we can revisit implementation.
+The `getattr()` approach is the most extensible --- it would scale gracefully if
+`SamFileRead` grew additional read types --- but it pays for that generality with
+significant machinery (two `StrEnum`s, a private helper) that buys nothing given
+the current two-pair structure. Rejected as over-engineered.
+
+The slice approach is compact, but it silently couples to field declaration order.
+Adding or reordering fields breaks the method with no type error or warning, and
+the intent of `slice(2, 4)` is not obvious to a reader. Rejected as fragile.
+
+The explicit `if/else` is slightly more verbose than the slice approach but names
+its fields directly, making it immune to reordering and immediately self-documenting.
+It is the simplest implementation that is also correct under future structural
+changes to `SamFileRead`.
