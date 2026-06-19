@@ -21,20 +21,6 @@ from concatmap.utils import PositionToAngleConverter
 from concatmap.utils import normalize
 
 
-def mapped_endpoints(read: SamFileRead) -> tuple[int, int]:
-    """
-    Inclusive reference start/end of the aligned portion of a read.
-    """
-    return read.reference_start, read.reference_end - 1
-
-
-def clipped_endpoints(read: SamFileRead) -> tuple[int, int]:
-    """
-    Inclusive reference start/end of the read including clipped bases.
-    """
-    return read.clipped_start, read.clipped_end - 1
-
-
 class OutputFormat(Enum):  # pylint: disable=invalid-name
     eps = '.eps'
     jpeg = '.jpeg'
@@ -127,7 +113,8 @@ class AbstractPlotter(abc.ABC):
             self.reads,
             self.line_spacing,
             self.circle_size,
-            endpoints=clipped_endpoints)
+            include_clipped=True,
+        )
         for line_segment in line_segments:
             thetas, radii = self._linearize(line_segment)
             # A clip longer than the reference projects to an arc that sweeps
@@ -141,7 +128,11 @@ class AbstractPlotter(abc.ABC):
 
     def _drawReads(self, ax: plt.Axes) -> None:
         line_segments = self._convertReadsToLineSegments(
-            self.reads, self.line_spacing, self.circle_size)
+            self.reads,
+            self.line_spacing,
+            self.circle_size,
+            include_clipped=False,
+        )
         for line_segment in line_segments:
             thetas, radii = self._linearize(line_segment)
             self._drawLineSegment(ax, thetas, radii)
@@ -155,14 +146,15 @@ class AbstractPlotter(abc.ABC):
             reads: list[SamFileRead],
             line_spacing: float,
             basis_radius: float,
-            endpoints: Callable[[SamFileRead], tuple[int, int]] = mapped_endpoints,
+            include_clipped: bool = False,
     ) -> Iterator[PolarLineSegment]:
         for i, read in enumerate(reads, 1):
-            start, end = endpoints(read)
+            start, end = read.getEndpoints(include_clipped)
             radius = basis_radius + line_spacing * i
             yield PolarLineSegment(
                 PolarCoordinate(self.conv(start), radius),
-                PolarCoordinate(self.conv(end), radius))
+                PolarCoordinate(self.conv(end), radius),
+            )
 
     @staticmethod
     def _linearize(

@@ -62,3 +62,15 @@ class SamFileRead(NamedTuple):
     reference_end: int
     clipped_start: int
     clipped_end: int
+
+    def getEndpoints(self, include_clipped: bool = False) -> tuple[int, int]:
+        """
+        Inclusive reference start/end of the read.
+
+         :param include_clipped: Whether to include just mapped bases or
+             also clipped bases.
+        :return: A tuple representing start and end, inclusive.
+        """
+        slice_ = slice(2, 4) if include_clipped else slice(2)
+        start, end = self[slice_]
+        return start, end - 1

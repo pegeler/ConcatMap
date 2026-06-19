@@ -1,9 +1,9 @@
 #!/usr/bin/env Rscript
 depth_filename <- commandArgs(TRUE)[1]
 
-df <- read.csv(depth_filename, header = FALSE, sep = "\t")
-npos <- nrow(df) / 2
-depth <- df[rep(c(TRUE, FALSE), each = npos), 3] + df[rep(c(FALSE, TRUE), each = npos), 3]
+d <- read.delim(depth_filename, header = FALSE)[[3]]
+npos <- length(d) / 2
+depth <- d[rep(c(TRUE, FALSE), each = npos)] + d[rep(c(FALSE, TRUE), each = npos)]
 
 png_filename <- sub("\\.tsv$", ".png", depth_filename)
 

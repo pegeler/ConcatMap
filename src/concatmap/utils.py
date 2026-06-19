@@ -58,6 +58,11 @@ class PositionToAngleConverter:
 
 
 class AngularCoordinatesInterpolator:
+    """
+    Callable class that will take a list of values and map each value to an
+    angle based on its position within the list. Given an array of new angles,
+    it will interpolate the value at each angle.
+    """
 
     def __init__(self, values: list[float]):
         self.values = values[:]
