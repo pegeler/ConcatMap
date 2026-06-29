@@ -77,13 +77,50 @@ options:
                         position.
 ```
 
-### Example
+### Examples
+
+Every invocation needs a query (`-q`) and a reference (`-r`); the flags below
+layer on different views of the same data.
+
+**Basic plot.** Map reads and render the mapped portions as a PNG, dropping
+reads shorter than 1 kb:
 
 ```bash
-concatmap -q <PathToFASTQFile/InputFileName> \
-          -r <PathToFASTAReferenceFile/ReferenceFileName> \
-          -m 10000 \
-          -f "png"
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png
+```
+
+**Include clipped bases.** Add `-x` to also draw each read's soft-clipped
+extensions beyond its aligned span (useful for spotting concatemers and
+reads that wrap the origin):
+
+```bash
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -x
+```
+
+**Color by read depth.** `-d` colors each read by per-position coverage instead
+of drawing it in a flat color. This computes coverage with `samtools depth`, so
+it requires a position-sorted sam file (the default):
+
+```bash
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -d
+```
+
+**Skip sorting for a quick look.** `-u` plots from the unsorted sam file,
+skipping the position sort. It is mutually exclusive with `-d`, which needs
+sorted input:
+
+```bash
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -u
+```
+
+**Tune the layout.** The geometry flags control the rendering: `-s` figure
+size, `-c` central circle size, `-l` radial spacing between reads, `-w` line
+width. Write the output somewhere specific with `-o`/`-n`:
+
+```bash
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png \
+          -s 50 -c 0.5 -l 0.02 -w 1.5 \
+          -o plots -n my_plasmid
 ```
 
 ## Gallery
