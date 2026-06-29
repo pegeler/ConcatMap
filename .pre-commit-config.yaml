@@ -4,7 +4,7 @@ exclude: '^docs/'
 fail_fast: true
 repos:
 - repo: https://github.com/pylint-dev/pylint
-  rev: v3.0.2
+  rev: v4.0.6
   hooks:
     - id: pylint
 - repo: https://github.com/pycqa/isort
@@ -13,12 +13,16 @@ repos:
     - id: isort
       name: isort (python)
       args: [--sl]
-- repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.7.1
-  hooks:
-    - id: mypy
 - repo: local
   hooks:
+    # Advisory type check. switch to ty once it reaches 1.0.
+    - id: pyrefly
+      name: pyrefly (advisory)
+      entry: bash -c 'pyrefly check src/concatmap || true'
+      language: system
+      types: [python]
+      pass_filenames: false
+      verbose: true
     - id: pytest
       types: [python]
       name: pytest

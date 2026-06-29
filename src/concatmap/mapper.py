@@ -8,9 +8,9 @@ from argparse import Namespace
 from collections.abc import Iterator
 from pathlib import Path
 
+import pysam
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
-import pysam
 
 from concatmap import plot
 from concatmap.struct import SamFileRead

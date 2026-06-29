@@ -6,10 +6,10 @@ from itertools import pairwise
 from pathlib import Path
 from typing import Callable
 
+import numpy as np
 from matplotlib import cm
 from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
-import numpy as np
 
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
@@ -22,7 +22,10 @@ from concatmap.utils import PositionToAngleConverter
 from concatmap.utils import normalize
 
 
-class OutputFormat(Enum):  # pylint: disable=invalid-name
+class OutputFormat(Enum):
+    # Members mirror file-extension names, so they are intentionally lowercase
+    # rather than UPPER_CASE class constants.
+    # pylint: disable=invalid-name
     eps = '.eps'
     jpeg = '.jpeg'
     jpg = '.jpg'

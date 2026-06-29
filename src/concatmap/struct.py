@@ -1,10 +1,9 @@
 import math
 from collections.abc import Iterator
 from dataclasses import dataclass
-from enum import auto
 from enum import StrEnum
+from enum import auto
 from typing import NamedTuple
-
 
 type ReadSegment = tuple[int, int]
 """An inclusive (start, end) pair of reference positions."""
@@ -33,7 +32,7 @@ class PolarCoordinate:
         """
         return self.radians * 360 / math.tau
 
-    def get_pair(self, radians: bool = False) -> tuple[float, float]:
+    def getPair(self, radians: bool = False) -> tuple[float, float]:
         """
         Get the ordered pair of angle and radius.
 

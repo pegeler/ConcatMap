@@ -81,7 +81,9 @@ ignore-patterns=^\.#
 # (useful for modules/projects where namespaces are manipulated during runtime
 # and thus existing member attributes cannot be deduced by static analysis). It
 # supports qualified module names, as well as Unix pattern matching.
-ignored-modules=
+# pysam is a Cython C-extension; matplotlib.cm exposes colormaps (e.g. plasma)
+# registered dynamically. Neither can be introspected statically -> E1101.
+ignored-modules=pysam,matplotlib.cm
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
@@ -105,8 +107,9 @@ load-plugins=
 persistent=yes
 
 # Minimum Python version to use for version dependent checks. Will default to
-# the version used to run pylint.
-py-version=3.10
+# the version used to run pylint. Matches requires-python in pyproject.toml;
+# PEP 695 `type` statements require 3.12 (otherwise W2604).
+py-version=3.12
 
 # Discover python modules and packages in the file system subtree.
 recursive=no
@@ -119,7 +122,7 @@ source-roots=
 
 # When enabled, pylint would attempt to guess common misconfiguration and emit
 # user-friendly hints instead of false-positive error messages.
-suggestion-mode=yes
+#suggestion-mode=yes
 
 # Allow loading of arbitrary C extensions. Extensions are imported into the
 # active Python interpreter and may run arbitrary code.
@@ -254,7 +257,8 @@ property-classes=abc.abstractproperty
 
 # Regular expression matching correct type alias names. If left empty, type
 # alias names will be checked with the set naming style.
-#typealias-rgx=
+# PascalCase allowing embedded digits, e.g. Array1D.
+typealias-rgx=^[A-Z][a-zA-Z0-9]*$
 
 # Regular expression matching correct type variable names. If left empty, type
 # variable names will be checked with the set naming style.

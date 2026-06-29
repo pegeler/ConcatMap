@@ -1,4 +1,3 @@
 import numpy as np
-import numpy.typing as npt
 
-type Array1D = npt.NDArray[tuple[int], np.float64]
+type Array1D = np.ndarray[tuple[int], np.dtype[np.float64]]

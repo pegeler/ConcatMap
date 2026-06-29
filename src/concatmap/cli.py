@@ -15,6 +15,7 @@ reference, generating a .sam file that can be used for subsequent plotting.
 import argparse
 import logging
 from pathlib import Path
+from typing import NoReturn
 
 from concatmap import mapper
 from concatmap import plot
@@ -43,7 +44,7 @@ class ArgumentParser(argparse.ArgumentParser):
     rationale.
     """
 
-    def error(self, message: str) -> None:
+    def error(self, message: str) -> NoReturn:
         if '--depth' in message and '--unsorted' in message:
             message += (
                 ' (--depth computes coverage with `samtools depth`, which '
