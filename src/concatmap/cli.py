@@ -34,8 +34,26 @@ def get_logger(debug: bool) -> logging.Logger:
     return logger
 
 
+class ArgumentParser(argparse.ArgumentParser):
+    """
+    Argument parser that explains the ``--unsorted``/``--depth`` conflict.
+
+    argparse routes a mutually-exclusive group violation through ``error()``
+    with a terse "not allowed with" message. We intercept it to append the
+    rationale, since there is only one such group in this parser.
+    """
+
+    def error(self, message: str) -> None:
+        if '--depth' in message and '--unsorted' in message:
+            message += (
+                ' (--depth computes coverage with `samtools depth`, which '
+                'requires a position-sorted sam file)'
+            )
+        super().error(message)
+
+
 def parse_args(argv=None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(
+    p = ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument(
@@ -98,11 +116,13 @@ def parse_args(argv=None) -> argparse.Namespace:
     g.add_argument(
         '-u', '--unsorted',
         action='store_true',
-        help='Plot from unsorted sam file.')
+        help='Plot from unsorted sam file. Mutually exclusive with --depth.')
     g.add_argument(
         '-d', '--depth',
         action='store_true',
-        help='Plot read line segments colored by read depth at each position.')
+        help='Plot read line segments colored by read depth at each position. '
+             'Requires a position-sorted sam file, so it cannot be combined '
+             'with --unsorted.')
     p.add_argument(
         '--debug',
         action='store_true',
