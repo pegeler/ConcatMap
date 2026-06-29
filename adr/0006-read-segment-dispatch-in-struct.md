@@ -1,4 +1,4 @@
-# ADR 0006: Read sub-region dispatch via `SamFileRead.segments()`
+# ADR 0006: Read sub-region dispatch via `SamFileRead.getSegments()`
 
 **Date:** 2026-06-28
 **Status:** Accepted
@@ -29,10 +29,13 @@ Two pressures broke that design:
 ## Decision
 
 Dispatch on a `ReadSegmentType` enum (`MAPPED` / `CLIPPED`) inside a new
-`SamFileRead.segments(segment_type)` generator, and place **both** the enum
+`SamFileRead.getSegments(segment_type)` generator, and place **both** the enum
 and the method in `struct.py`:
 
 ```python
+type ReadSegment = tuple[int, int]
+
+
 class ReadSegmentType(StrEnum):
     MAPPED = auto()
     CLIPPED = auto()
@@ -40,21 +43,25 @@ class ReadSegmentType(StrEnum):
 
 class SamFileRead(NamedTuple):
     ...
-    def segments(
+    def getSegments(
             self,
             segment_type: ReadSegmentType,
-    ) -> Iterator[tuple[int, int]]:
+    ) -> Iterator[ReadSegment]:
         match segment_type:
             case ReadSegmentType.MAPPED:
-                yield self.getEndpoints()
+                yield self.getMappedSegment()
             case ReadSegmentType.CLIPPED:
-                yield from self.clipSegments()
+                yield from self.getClippedSegments()
 ```
 
-`getEndpoints()` and `clipSegments()` remain as named, individually testable
-helpers; `segments()` is the type-directed dispatcher over them. The plotter
-calls `read.segments(segment_type)` and never inspects which fields a given
-segment type pulls.
+`getMappedSegment()` and `getClippedSegments()` remain as named, individually
+testable helpers; `getSegments()` is the type-directed dispatcher over them. The
+plotter calls `read.getSegments(segment_type)` and never inspects which fields a
+given segment type pulls. All three methods share one `verbObject` shape and a
+single noun (`ReadSegment`), and the helper names mirror the enum members
+(`MAPPED` -> `getMappedSegment`, `CLIPPED` -> `getClippedSegments`).
+`ReadSegment` is a type alias for an inclusive `(start, end)` reference
+interval --- the return shape of all three methods.
 
 ## Rationale
 
@@ -65,7 +72,7 @@ third sub-region is ever needed. The `match/case` is the project's idiom for
 type-directed behavior over `if/elif` chains.
 
 **Enum over `Callable` strategy.** A callable extractor
-(`lambda r: [r.getEndpoints()]`) was rejected: it pushes awkward machinery onto
+(`lambda r: [r.getMappedSegment()]`) was rejected: it pushes awkward machinery onto
 every call site for the common default and hides what is really a small, closed
 set of modes.
 
@@ -73,17 +80,17 @@ set of modes.
 `struct.py`, never the reverse; `struct.py` depends only on the stdlib. Read
 sub-region selection is a property of a read, not of how it is rendered, so
 `ReadSegmentType` is a domain concept that belongs in `struct.py`. Defining it
-there lets `segments()` dispatch locally without inverting the layering, and it
+there lets `getSegments()` dispatch locally without inverting the layering, and it
 keeps read logic out of the plotter --- behavior lives with the data it
 describes.
 
 ## Consequences
 
-- `getEndpoints()` loses its `include_clipped` parameter and becomes a plain
-  accessor for the mapped inclusive endpoints.
+- `getEndpoints(include_clipped)` is replaced by `getMappedSegment()`, a plain
+  accessor for the mapped inclusive segment with no flag.
 - The plotter's `_convertReadsToLineSegments` takes a `ReadSegmentType`
-  (defaulting to `MAPPED`) and iterates `read.segments(segment_type)`, handling
-  the 1:1 and 1:N cases through one loop.
+  (defaulting to `MAPPED`) and iterates `read.getSegments(segment_type)`,
+  handling the 1:1 and 1:N cases through one loop.
 - The over-length guard (ADR 0003) now runs per clip extension rather than over
   the whole clipped span.
 - Adding a new read sub-region means adding a `ReadSegmentType` member and a

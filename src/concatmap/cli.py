@@ -40,7 +40,7 @@ class ArgumentParser(argparse.ArgumentParser):
 
     argparse routes a mutually-exclusive group violation through ``error()``
     with a terse "not allowed with" message. We intercept it to append the
-    rationale, since there is only one such group in this parser.
+    rationale.
     """
 
     def error(self, message: str) -> None:

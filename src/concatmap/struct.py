@@ -6,6 +6,10 @@ from enum import StrEnum
 from typing import NamedTuple
 
 
+type ReadSegment = tuple[int, int]
+"""An inclusive (start, end) pair of reference positions."""
+
+
 class ReadSegmentType(StrEnum):
     MAPPED = auto()
     CLIPPED = auto()
@@ -71,19 +75,20 @@ class SamFileRead(NamedTuple):
     clipped_start: int
     clipped_end: int
 
-    def getEndpoints(self) -> tuple[int, int]:
+    def getMappedSegment(self) -> ReadSegment:
         """
-        Inclusive reference start/end of the aligned portion of the read.
+        The aligned portion of the read as one inclusive segment.
 
-        :return: A tuple representing start and end, inclusive.
+        :return: The inclusive (start, end) of the mapped reference span.
         """
         return self.reference_start, self.reference_end - 1
 
-    def clipSegments(self) -> list[tuple[int, int]]:
+    def getClippedSegments(self) -> list[ReadSegment]:
         """
-        Inclusive start/end pairs for each non-overlapping clip extension.
+        The non-overlapping clip extensions as inclusive segments.
 
-        :return: 0–2 pairs: leading extension (if any), then trailing (if any).
+        :return: 0–2 segments: leading extension (if any), then trailing
+            (if any).
         """
         segments = []
         if self.clipped_start < self.reference_start:
@@ -92,19 +97,16 @@ class SamFileRead(NamedTuple):
             segments.append((self.reference_end, self.clipped_end - 1))
         return segments
 
-    def segments(
-            self,
-            segment_type: ReadSegmentType,
-    ) -> Iterator[tuple[int, int]]:
+    def getSegments(self, segment_type: ReadSegmentType) -> Iterator[ReadSegment]:
         """
-        Inclusive start/end pairs for the requested kind of read sub-region.
+        The segments for the requested kind of read sub-region.
 
         :param segment_type: Which sub-region to yield: the mapped portion or
             the non-overlapping clip extensions.
-        :return: An iterator of inclusive (start, end) pairs.
+        :return: An iterator of inclusive segments.
         """
         match segment_type:
             case ReadSegmentType.MAPPED:
-                yield self.getEndpoints()
+                yield self.getMappedSegment()
             case ReadSegmentType.CLIPPED:
-                yield from self.clipSegments()
+                yield from self.getClippedSegments()

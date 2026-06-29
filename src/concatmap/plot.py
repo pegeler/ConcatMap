@@ -147,7 +147,7 @@ class AbstractPlotter(abc.ABC):
     ) -> Iterator[PolarLineSegment]:
         for i, read in enumerate(reads, 1):
             radius = basis_radius + line_spacing * i
-            for start, end in read.segments(segment_type):
+            for start, end in read.getSegments(segment_type):
                 yield PolarLineSegment(
                     PolarCoordinate(self.conv(start), radius),
                     PolarCoordinate(self.conv(end), radius),
