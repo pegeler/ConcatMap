@@ -7,9 +7,11 @@
 
 ConcatMap projects clipped (unaligned) bases linearly onto the circular
 reference: one clipped base = one reference position upstream or downstream of
-the alignment. When the clipped region is longer than the reference, the
-projected arc sweeps past 2pi and overlaps itself, producing a misleading ring
-that looks like uniform full coverage.
+the alignment. Each read contributes up to two non-overlapping clip extensions
+(a leading stub before the alignment and a trailing stub after it), drawn as
+separate arcs. When an extension is longer than the reference, its projected
+arc sweeps past 2pi and overlaps itself, producing a misleading ring that
+looks like uniform full coverage.
 
 This occurs in practice with nanopore concatemers, chimeric reads, and long
 reads that align only locally (observed in 458 of 2155 records, ~21%, on the
@@ -24,8 +26,11 @@ Three options were considered:
 
 ## Decision
 
-Skip (option 1): if `abs(thetas[-1] - thetas[0]) > math.tau`, do not draw the
-clip arc. The mapped read arc is still plotted.
+Skip (option 1): for each clip extension, if
+`abs(thetas[-1] - thetas[0]) > math.tau`, do not draw that extension's arc.
+The guard is applied per extension, so a read with one in-scope extension and
+one over-length extension still draws the in-scope one. The mapped read arc is
+always plotted.
 
 ## Rationale
 
@@ -47,8 +52,11 @@ The guard is a single `if` before `ax.plot`, so complexity cost is negligible.
 
 ## Consequences
 
-- Clip arcs for concatemers/chimeras are silently omitted (no warning emitted
-  per-read to avoid log spam). A summary count could be added later.
+- Over-length clip extensions for concatemers/chimeras are silently omitted
+  (no warning emitted per-read to avoid log spam). A summary count could be
+  added later. Because the guard is per extension, a read keeps any extension
+  that is individually in scope --- earlier the whole clipped span was measured
+  as one arc, so such a read was dropped wholesale.
 - The tool is not appropriate for datasets where over-length clips are the
   primary signal of interest.
 - `PositionToAngleConverter.__call__` intentionally returns unwrapped angles

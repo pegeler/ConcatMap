@@ -1,7 +1,13 @@
 # ADR 0005: Implementation of `SamFileRead.getEndpoints()` method
 
 **Date:** 2026-06-19
-**Status:** Accepted
+**Status:** Superseded by [ADR 0006](0006-read-segment-dispatch-in-struct.md)
+
+> **Superseded:** This ADR weighed three ways to dispatch on an
+> `include_clipped` flag *inside* `getEndpoints()`. That flag has since been
+> removed: `getEndpoints()` now returns only the mapped endpoints, and
+> selecting between mapped and clipped sub-regions moved to
+> `SamFileRead.segments()`, dispatched by type. See ADR 0006.
 
 ## Context
 

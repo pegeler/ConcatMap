@@ -1,6 +1,14 @@
 import math
+from collections.abc import Iterator
 from dataclasses import dataclass
+from enum import auto
+from enum import StrEnum
 from typing import NamedTuple
+
+
+class ReadSegmentType(StrEnum):
+    MAPPED = auto()
+    CLIPPED = auto()
 
 
 @dataclass(slots=True, frozen=True)
@@ -63,14 +71,40 @@ class SamFileRead(NamedTuple):
     clipped_start: int
     clipped_end: int
 
-    def getEndpoints(self, include_clipped: bool = False) -> tuple[int, int]:
+    def getEndpoints(self) -> tuple[int, int]:
         """
-        Inclusive reference start/end of the read.
+        Inclusive reference start/end of the aligned portion of the read.
 
-         :param include_clipped: Whether to include just mapped bases or
-             also clipped bases.
         :return: A tuple representing start and end, inclusive.
         """
-        if include_clipped:
-            return self.clipped_start, self.clipped_end - 1
         return self.reference_start, self.reference_end - 1
+
+    def clipSegments(self) -> list[tuple[int, int]]:
+        """
+        Inclusive start/end pairs for each non-overlapping clip extension.
+
+        :return: 0–2 pairs: leading extension (if any), then trailing (if any).
+        """
+        segments = []
+        if self.clipped_start < self.reference_start:
+            segments.append((self.clipped_start, self.reference_start - 1))
+        if self.clipped_end > self.reference_end:
+            segments.append((self.reference_end, self.clipped_end - 1))
+        return segments
+
+    def segments(
+            self,
+            segment_type: ReadSegmentType,
+    ) -> Iterator[tuple[int, int]]:
+        """
+        Inclusive start/end pairs for the requested kind of read sub-region.
+
+        :param segment_type: Which sub-region to yield: the mapped portion or
+            the non-overlapping clip extensions.
+        :return: An iterator of inclusive (start, end) pairs.
+        """
+        match segment_type:
+            case ReadSegmentType.MAPPED:
+                yield self.getEndpoints()
+            case ReadSegmentType.CLIPPED:
+                yield from self.clipSegments()

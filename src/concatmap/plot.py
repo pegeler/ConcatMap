@@ -13,6 +13,7 @@ import numpy as np
 
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
+from concatmap.struct import ReadSegmentType
 from concatmap.struct import SamFileRead
 from concatmap.typing import Array1D
 from concatmap.utils import AngularCoordinatesInterpolator
@@ -42,6 +43,10 @@ class AbstractPlotter(abc.ABC):
     BASIS_LINEWIDTH = 5
     BASIS_COLOR = 'red'
     CLIPPED_COLOR = 'red'
+    # Reads are drawn as a dense radial grating (one arc per read). At the
+    # default ~100 dpi the line density outruns the pixel density and the arcs
+    # alias into a moire; a higher save resolution suppresses it.
+    DPI = 300
 
     def __init__(
             self,
@@ -105,23 +110,16 @@ class AbstractPlotter(abc.ABC):
         ax.plot(thetas, radii, color=self.BASIS_COLOR, linewidth=self.BASIS_LINEWIDTH)
 
     def _drawClippedReads(self, ax: plt.Axes) -> None:
-        # Clipped portions are drawn before (under) the mapped reads at the same
-        # radius, so the mapped arc overlays the clip and only the overhanging
-        # clipped bases remain visible. Always a flat color (no depth map), to
-        # keep the clip distinct from the mapped read.
         line_segments = self._convertReadsToLineSegments(
             self.reads,
             self.line_spacing,
             self.circle_size,
-            include_clipped=True,
+            ReadSegmentType.CLIPPED,
         )
         for line_segment in line_segments:
             thetas, radii = self._linearize(line_segment)
-            # A clip longer than the reference projects to an arc that sweeps
-            # past a full turn and self-overlaps into a misleading ring. Such
-            # reads (e.g. nanopore concatemers/chimeras far longer than the
-            # genome) are out of scope, so skip the clip arc; the mapped portion
-            # is still drawn by _drawReads.
+            # A clip extension longer than the reference sweeps past a full
+            # turn and self-overlaps into a misleading ring; skip it.
             if abs(thetas[-1] - thetas[0]) > math.tau:
                 continue
             ax.plot(thetas, radii, color=self.CLIPPED_COLOR, linewidth=self.line_width)
@@ -131,7 +129,6 @@ class AbstractPlotter(abc.ABC):
             self.reads,
             self.line_spacing,
             self.circle_size,
-            include_clipped=False,
         )
         for line_segment in line_segments:
             thetas, radii = self._linearize(line_segment)
@@ -139,22 +136,22 @@ class AbstractPlotter(abc.ABC):
 
     def _saveFigure(self) -> None:
         # TODO: Flip image so it is cw instead of ccw?
-        plt.savefig(self.figure_file, bbox_inches='tight')
+        plt.savefig(self.figure_file, bbox_inches='tight', dpi=self.DPI)
 
     def _convertReadsToLineSegments(
             self,
             reads: list[SamFileRead],
             line_spacing: float,
             basis_radius: float,
-            include_clipped: bool = False,
+            segment_type: ReadSegmentType = ReadSegmentType.MAPPED,
     ) -> Iterator[PolarLineSegment]:
         for i, read in enumerate(reads, 1):
-            start, end = read.getEndpoints(include_clipped)
             radius = basis_radius + line_spacing * i
-            yield PolarLineSegment(
-                PolarCoordinate(self.conv(start), radius),
-                PolarCoordinate(self.conv(end), radius),
-            )
+            for start, end in read.segments(segment_type):
+                yield PolarLineSegment(
+                    PolarCoordinate(self.conv(start), radius),
+                    PolarCoordinate(self.conv(end), radius),
+                )
 
     @staticmethod
     def _linearize(
