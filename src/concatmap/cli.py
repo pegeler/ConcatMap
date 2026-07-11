@@ -117,13 +117,21 @@ def parse_args(argv=None) -> argparse.Namespace:
     g.add_argument(
         '-u', '--unsorted',
         action='store_true',
-        help='Plot from unsorted sam file. Mutually exclusive with --depth.')
+        help='Plot from unsorted sam file. Mutually exclusive with --depth '
+             'and --by_base.')
     g.add_argument(
         '-d', '--depth',
         action='store_true',
         help='Plot read line segments colored by read depth at each position. '
              'Requires a position-sorted sam file, so it cannot be combined '
-             'with --unsorted.')
+             'with --unsorted. Mutually exclusive with --by_base.')
+    g.add_argument(
+        '-b', '--by_base',
+        action='store_true',
+        help='Plot read line segments colored by base identity: grey where the '
+             'read matches the reference, IGV-style nucleotide colors where it '
+             'substitutes a different base. Mutually exclusive with --unsorted '
+             'and --depth.')
     p.add_argument(
         '--debug',
         action='store_true',

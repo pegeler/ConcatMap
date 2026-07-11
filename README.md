@@ -31,7 +31,7 @@ usage: concatmap [-h] -q QUERY_FILE -r REFERENCE_FILE [-o OUTPUT_DIR]
                  [-n OUTPUT_NAME] [-m MIN_LENGTH] [-l LINE_SPACING]
                  [-w LINE_WIDTH] [-c CIRCLE_SIZE] [-s FIG_SIZE] [-x]
                  [-f {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}]
-                 [-u | -d]
+                 [-u | -d | -b]
 
 ConcatMap Command Line Interface
 ================================
@@ -72,9 +72,16 @@ options:
                         Plot clipped portion of reads.
   -f {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}, --figure_format {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}
                         Format of saved figure. (default: pdf)
-  -u, --unsorted        Plot from unsorted sam file.
+  -u, --unsorted        Plot from unsorted sam file. Mutually exclusive with
+                        --depth and --by_base.
   -d, --depth           Plot read line segments colored by read depth at each
-                        position.
+                        position. Requires a position-sorted sam file, so it
+                        cannot be combined with --unsorted. Mutually exclusive
+                        with --by_base.
+  -b, --by_base         Plot read line segments colored by base identity: grey
+                        where the read matches the reference, IGV-style
+                        nucleotide colors where it substitutes a different
+                        base. Mutually exclusive with --unsorted and --depth.
 ```
 
 ### Examples
@@ -103,6 +110,15 @@ it requires a position-sorted sam file (the default):
 
 ```bash
 concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -d
+```
+
+**Color by base identity.** `-b` renders each read IGV/MSA alignment-track
+style: grey where the read matches the reference, and colored by nucleotide
+(A green, C blue, G orange, T red) at each substituted base. It is one of the
+mutually exclusive view modes, so it cannot be combined with `-u` or `-d`:
+
+```bash
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -b
 ```
 
 **Skip sorting for a quick look.** `-u` plots from the unsorted sam file,

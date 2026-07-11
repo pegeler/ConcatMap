@@ -62,6 +62,20 @@ class PolarLineSegment:
         return self.start_coord.radius, self.end_coord.radius
 
 
+@dataclass(slots=True, frozen=True)
+class Mismatch:
+    """
+    A single-base substitution against the reference sequence.
+
+    :ivar position: The concatenated-reference position (0-based) of the
+        substitution, in the same coordinate space as
+        ``SamFileRead.reference_start``/``reference_end``.
+    :ivar read_base: The read's base at this position, upper-cased.
+    """
+    position: int
+    read_base: str
+
+
 class SamFileRead(NamedTuple):
     """
     A container to hold start and end positions from the samfile.
@@ -73,6 +87,7 @@ class SamFileRead(NamedTuple):
     reference_end: int
     clipped_start: int
     clipped_end: int
+    mismatches: tuple[Mismatch, ...] = ()
 
     def getMappedSegment(self) -> ReadSegment:
         """
@@ -109,3 +124,19 @@ class SamFileRead(NamedTuple):
                 yield self.getMappedSegment()
             case ReadSegmentType.CLIPPED:
                 yield from self.getClippedSegments()
+
+
+@dataclass(slots=True, frozen=True)
+class PlacedRead:
+    """
+    A read bound to one of its rendered polar line segments.
+
+    A read yields exactly one mapped segment and 0–2 clip segments; each is
+    paired with the originating read so a plotter can color a segment using
+    that read's per-base data.
+
+    :ivar read: The source read.
+    :ivar curve: The polar line segment to draw for one of its sub-regions.
+    """
+    read: SamFileRead
+    curve: PolarLineSegment
