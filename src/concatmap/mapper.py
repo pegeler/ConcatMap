@@ -13,6 +13,7 @@ from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 
 from concatmap import plot
+from concatmap.struct import Mismatch
 from concatmap.struct import SamFileRead
 
 # Leading/trailing CIGAR operations representing clipped (unaligned) bases.
@@ -58,10 +59,61 @@ def run_minimap(query_file: Path, reference_file: Path, sam_file: Path) -> None:
     subprocess.run(cmd, check=True)
 
 
+def _find_mismatches(
+        r: pysam.AlignedSegment,
+        reference_sequence: str,
+) -> Iterator[Mismatch]:
+    """
+    Walk ``r``'s CIGAR, comparing consumed query bases against
+    ``reference_sequence`` at each aligned (M/=/X) position, yielding one
+    ``Mismatch`` per substituted base.
+
+    ``reference_sequence`` is assumed upper-cased by the caller (done once in
+    ``read_samfile``), so this hot loop upper-cases only the query, and only
+    once per read rather than per base.
+
+    M/=/X consume both query and reference and are compared base-for-base
+    (``=`` is a declared match, so comparison is skipped; ``M`` and ``X`` are
+    checked directly --- ``X`` re-derives the actual substituted base, which we
+    need anyway). I/S consume only the query; D/N consume only the reference;
+    H/P consume neither. ``r.reference_start`` and all CIGAR-derived offsets are
+    already in the concatenated reference's coordinate space, matching
+    ``SamFileRead.reference_start``/``reference_end``, so ``reference_sequence``
+    is indexed directly with no wraparound math. pysam reports
+    ``query_sequence``/``cigartuples`` in reference orientation even for
+    reverse-strand reads, so no reverse-complement handling is needed.
+
+    :param r: The aligned segment to inspect.
+    :param reference_sequence: The (upper-cased) concatenated reference string.
+    :return: An iterator of ``Mismatch`` for each substituted base.
+    """
+    query = r.query_sequence
+    if query is None:
+        return
+    query = query.upper()
+    query_pos = 0
+    ref_pos = r.reference_start
+    for op, length in r.cigartuples:
+        if op in (pysam.CMATCH, pysam.CEQUAL, pysam.CDIFF):
+            if op != pysam.CEQUAL:
+                for i in range(length):
+                    read_base = query[query_pos + i]
+                    if read_base != reference_sequence[ref_pos + i]:
+                        yield Mismatch(ref_pos + i, read_base)
+            query_pos += length
+            ref_pos += length
+        elif op in (pysam.CINS, pysam.CSOFT_CLIP):
+            query_pos += length
+        elif op in (pysam.CDEL, pysam.CREF_SKIP):
+            ref_pos += length
+        # CHARD_CLIP, CPAD: consume neither, no-op.
+
+
 def read_samfile(
         sam_filename: Path,
         unsorted: bool,
         min_length: int,
+        reference_sequence: str | None = None,
         logger: logging.Logger | None = None,
 ) -> Iterator[SamFileRead]:
     """
@@ -72,6 +124,11 @@ def read_samfile(
     :param unsorted: Whether to leave the *sam* file unsorted or run the
             ``samtools`` sort.
     :param min_length: Minimum read length to be retained.
+    :param reference_sequence: The concatenated reference string. When provided,
+            each read's per-base substitutions against it are computed and
+            attached; when ``None``, the CIGAR walk is skipped and
+            ``mismatches`` stays empty. Passed only for the ``--by_base`` plot,
+            so default and depth runs pay nothing for it.
     :param logger: Optional logger.
     :return: An iterator of ``SamFileRead``.
     """
@@ -84,6 +141,9 @@ def read_samfile(
         pysam.samtools.sort(
             '-o', str(sorted_sam_filename), str(sam_filename), catch_stdout=False)
         samfile = pysam.AlignmentFile(sorted_sam_filename, 'r')
+
+    if reference_sequence is not None:
+        reference_sequence = reference_sequence.upper()
 
     for r in samfile.fetch(until_eof=True):
         # Skip secondary alignments (alternative placements of the same read).
@@ -105,11 +165,17 @@ def read_samfile(
         # Clipped-base positions projected onto the reference up/downstream.
         clipped_start = r.reference_start - lead
         clipped_end = r.reference_end + trail
+        mismatches = (
+            tuple(_find_mismatches(r, reference_sequence))
+            if reference_sequence is not None
+            else ()
+        )
         yield SamFileRead(
             r.reference_start,
             r.reference_end,
             clipped_start,
             clipped_end,
+            mismatches,
         )
 
 
@@ -152,7 +218,12 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
     logger.info('Running minimap2')
     run_minimap(args.query_file, concat_filename, sam_filename)
 
-    reads = list(read_samfile(sam_filename, args.unsorted, args.min_length, logger))
+    # Per-base comparison is only needed for the --by_base plot, so hand the
+    # concatenated sequence to read_samfile only then; other modes skip the
+    # O(read-length) CIGAR walk entirely.
+    reference_sequence = str(concat_record.seq) if args.by_base else None
+    reads = list(read_samfile(
+        sam_filename, args.unsorted, args.min_length, reference_sequence, logger))
     logger.info('Read %d records from sam file', len(reads))
 
     if args.depth:
@@ -174,6 +245,8 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         )
         depths = get_depths_at_positions(depth_filename, len(reference_record))
         plotter_class = functools.partial(plot.MulticolorLinePlotter, values=depths)
+    elif args.by_base:
+        plotter_class = plot.MismatchPlotter
     else:
         plotter_class = plot.DefaultPlotter
 

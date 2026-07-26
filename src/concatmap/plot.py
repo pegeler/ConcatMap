@@ -11,6 +11,7 @@ from matplotlib import cm
 from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
 
+from concatmap.struct import PlacedRead
 from concatmap.struct import PolarCoordinate
 from concatmap.struct import PolarLineSegment
 from concatmap.struct import ReadSegmentType
@@ -79,7 +80,7 @@ class AbstractPlotter(abc.ABC):
             ax: plt.Axes,
             thetas: Array1D,
             radii: Array1D,
-            **kwargs,
+            read: SamFileRead,
     ) -> None:
         ...
 
@@ -113,14 +114,14 @@ class AbstractPlotter(abc.ABC):
         ax.plot(thetas, radii, color=self.BASIS_COLOR, linewidth=self.BASIS_LINEWIDTH)
 
     def _drawClippedReads(self, ax: plt.Axes) -> None:
-        line_segments = self._convertReadsToLineSegments(
+        placed_reads = self._convertReadsToLineSegments(
             self.reads,
             self.line_spacing,
             self.circle_size,
             ReadSegmentType.CLIPPED,
         )
-        for line_segment in line_segments:
-            thetas, radii = self._linearize(line_segment)
+        for placed in placed_reads:
+            thetas, radii = self._linearize(placed.curve)
             # A clip extension longer than the reference sweeps past a full
             # turn and self-overlaps into a misleading ring; skip it.
             if abs(thetas[-1] - thetas[0]) > math.tau:
@@ -128,14 +129,14 @@ class AbstractPlotter(abc.ABC):
             ax.plot(thetas, radii, color=self.CLIPPED_COLOR, linewidth=self.line_width)
 
     def _drawReads(self, ax: plt.Axes) -> None:
-        line_segments = self._convertReadsToLineSegments(
+        placed_reads = self._convertReadsToLineSegments(
             self.reads,
             self.line_spacing,
             self.circle_size,
         )
-        for line_segment in line_segments:
-            thetas, radii = self._linearize(line_segment)
-            self._drawLineSegment(ax, thetas, radii)
+        for placed in placed_reads:
+            thetas, radii = self._linearize(placed.curve)
+            self._drawLineSegment(ax, thetas, radii, placed.read)
 
     def _saveFigure(self) -> None:
         # TODO: Flip image so it is cw instead of ccw?
@@ -147,14 +148,14 @@ class AbstractPlotter(abc.ABC):
             line_spacing: float,
             basis_radius: float,
             segment_type: ReadSegmentType = ReadSegmentType.MAPPED,
-    ) -> Iterator[PolarLineSegment]:
+    ) -> Iterator[PlacedRead]:
         for i, read in enumerate(reads, 1):
             radius = basis_radius + line_spacing * i
             for start, end in read.getSegments(segment_type):
-                yield PolarLineSegment(
+                yield PlacedRead(read, PolarLineSegment(
                     PolarCoordinate(self.conv(start), radius),
                     PolarCoordinate(self.conv(end), radius),
-                )
+                ))
 
     @staticmethod
     def _linearize(
@@ -177,7 +178,7 @@ class DefaultPlotter(AbstractPlotter):
             ax: plt.Axes,
             thetas: Array1D,
             radii: Array1D,
-            **kwargs,
+            read: SamFileRead,
     ) -> None:
         ax.plot(thetas, radii, color=self.LINE_COLOR, linewidth=self.line_width)
 
@@ -211,7 +212,7 @@ class MulticolorLinePlotter(AbstractPlotter):
             ax: plt.Axes,
             thetas: Array1D,
             radii: Array1D,
-            **kwargs
+            read: SamFileRead,
     ) -> None:
         lines = list(pairwise(zip(thetas, radii)))
         midpoints = np.array([(a + b) / 2 for (a, _), (b, _) in lines])
@@ -222,3 +223,52 @@ class MulticolorLinePlotter(AbstractPlotter):
         )
         ax.add_collection(segments)
         ax.set_rmax(radii[0])  # TODO: just set this once at the end
+
+
+IGV_BASE_COLORS: dict[str, str] = {
+    'A': '#00C800',  # green
+    'C': '#0000C8',  # blue
+    'G': '#D17105',  # brown/orange
+    'T': '#FF0000',  # red
+}
+
+
+class MismatchPlotter(AbstractPlotter):
+    """
+    Color each read gray where it matches the reference and with IGV nucleotide
+    colors at substituted bases (IGV/MSA alignment-track style).
+
+    A read is drawn as a single gray arc, then each substitution is overpainted
+    as a short arc spanning exactly that base's angular slot. Work is
+    proportional to the number of substitutions, so clean reads cost the same as
+    ``DefaultPlotter``.
+    """
+
+    BASIS_COLOR = 'black'        # not red: red is the T substitution color
+    CLIPPED_COLOR = 'lightgrey'  # neutral; none of the four base colors
+    LINE_COLOR = 'grey'
+    BASE_COLORS = IGV_BASE_COLORS
+
+    # One base subtends a negligible angle, so a straight two-point chord is
+    # visually indistinguishable from the arc; no dense linearization needed.
+    _MISMATCH_ARC_POINTS = 2
+
+    def _drawLineSegment(
+            self,
+            ax: plt.Axes,
+            thetas: Array1D,
+            radii: Array1D,
+            read: SamFileRead,
+    ) -> None:
+        ax.plot(thetas, radii, color=self.LINE_COLOR, linewidth=self.line_width)
+        radius = radii[0]  # constant along a mapped read segment
+        for mismatch in read.mismatches:
+            color = self.BASE_COLORS.get(mismatch.read_base)
+            if color is None:
+                continue  # ambiguous base (e.g. N): leave the gray body showing
+            base_arc = PolarLineSegment(
+                PolarCoordinate(self.conv(mismatch.position), radius),
+                PolarCoordinate(self.conv(mismatch.position + 1), radius),
+            )
+            arc_thetas, arc_radii = self._linearize(base_arc, self._MISMATCH_ARC_POINTS)
+            ax.plot(arc_thetas, arc_radii, color=color, linewidth=self.line_width)
