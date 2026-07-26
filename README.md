@@ -31,7 +31,7 @@ usage: concatmap [-h] -q QUERY_FILE -r REFERENCE_FILE [-o OUTPUT_DIR]
                  [-n OUTPUT_NAME] [-m MIN_LENGTH] [-l LINE_SPACING]
                  [-w LINE_WIDTH] [-c CIRCLE_SIZE] [-s FIG_SIZE] [-x]
                  [-f {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}]
-                 [-u | -d | -b]
+                 [-u | -d | -b] [-L]
 
 ConcatMap Command Line Interface
 ================================
@@ -82,6 +82,9 @@ options:
                         where the read matches the reference, IGV-style
                         nucleotide colors where it substitutes a different
                         base. Mutually exclusive with --unsorted and --depth.
+  -L, --legend          Draw a legend/key on the plot: a coverage colorbar with
+                        --depth, or a base-color key with --by_base. Has no
+                        effect in other modes.
 ```
 
 ### Examples
@@ -112,6 +115,15 @@ it requires a position-sorted sam file (the default):
 concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -d
 ```
 
+Add `-L`/`--legend` to draw a colorbar keying the colors to coverage depth. The
+bar is scaled to this plot's own minimum and maximum depth, so its tick values
+are absolute but the scale is relative between plots (yellow means "deepest in
+*this* dataset," not a fixed depth):
+
+```bash
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -d -L
+```
+
 **Color by base identity.** `-b` renders each read IGV/MSA alignment-track
 style: grey where the read matches the reference, and colored by nucleotide
 (A green, C blue, G orange, T red) at each substituted base. It is one of the
@@ -119,6 +131,13 @@ mutually exclusive view modes, so it cannot be combined with `-u` or `-d`:
 
 ```bash
 concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -b
+```
+
+Add `-L`/`--legend` to draw a key mapping each nucleotide color to its base
+(and grey to a match):
+
+```bash
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -b -L
 ```
 
 **Skip sorting for a quick look.** `-u` plots from the unsorted sam file,

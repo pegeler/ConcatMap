@@ -133,6 +133,11 @@ def parse_args(argv=None) -> argparse.Namespace:
              'substitutes a different base. Mutually exclusive with --unsorted '
              'and --depth.')
     p.add_argument(
+        '-L', '--legend',
+        action='store_true',
+        help='Draw a legend/key on the plot: a coverage colorbar with --depth, '
+             'or a base-color key with --by_base. Has no effect in other modes.')
+    p.add_argument(
         '--debug',
         action='store_true',
         help=argparse.SUPPRESS)

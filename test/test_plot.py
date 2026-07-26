@@ -1,6 +1,26 @@
 """Unit tests for the pure coloring decisions in ``plot``."""
+from pathlib import Path
+
+import matplotlib
+matplotlib.use('Agg')  # headless: no display needed for these tests
+from matplotlib import pyplot as plt
+
+from concatmap.plot import DefaultPlotter
 from concatmap.plot import IGV_BASE_COLORS
 from concatmap.plot import MismatchPlotter
+from concatmap.plot import MulticolorLinePlotter
+
+
+_PLOTTER_KWARGS = dict(
+    reads=[],
+    reference_length=100,
+    fig_size=4.0,
+    line_spacing=0.02,
+    line_width=0.75,
+    circle_size=0.45,
+    include_clipped_reads=False,
+    figure_file=Path('unused.png'),  # never written: we don't call plot()
+)
 
 
 def test_igv_colors_are_canonical():
@@ -29,3 +49,59 @@ def test_mismatch_plotter_avoids_red_for_basis_and_clips():
     assert MismatchPlotter.BASIS_COLOR != 'red'
     assert MismatchPlotter.CLIPPED_COLOR != 'red'
     assert MismatchPlotter.CLIPPED_COLOR not in IGV_BASE_COLORS.values()
+
+
+def test_list_values_retain_real_depth_range():
+    # The colorbar labels itself with the raw min/max depth, so the range must
+    # survive normalization (which otherwise discards it).
+    plotter = MulticolorLinePlotter(values=[3, 1, 4, 1, 5, 9, 2, 6],
+                                    **_PLOTTER_KWARGS)
+    assert plotter._value_range == (1, 9)
+
+
+def test_callable_values_have_no_depth_range():
+    # A pre-built interpolator carries no absolute domain to label.
+    plotter = MulticolorLinePlotter(values=lambda angles: angles,
+                                    **_PLOTTER_KWARGS)
+    assert plotter._value_range is None
+
+
+def test_depth_legend_adds_a_colorbar_axes():
+    plotter = MulticolorLinePlotter(values=[1, 2, 3, 4], **_PLOTTER_KWARGS)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, polar=True)
+    plotter._drawLegend(ax)
+    assert len(fig.axes) == 2  # polar axes + colorbar
+    plt.close(fig)
+
+
+def test_depth_legend_is_noop_without_a_depth_range():
+    plotter = MulticolorLinePlotter(values=lambda angles: angles,
+                                    **_PLOTTER_KWARGS)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, polar=True)
+    plotter._drawLegend(ax)
+    assert len(fig.axes) == 1  # nothing added
+    plt.close(fig)
+
+
+def test_by_base_legend_draws_a_base_color_key():
+    plotter = MismatchPlotter(**_PLOTTER_KWARGS)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, polar=True)
+    plotter._drawLegend(ax)
+    legend = ax.get_legend()
+    assert legend is not None
+    labels = [t.get_text() for t in legend.get_texts()]
+    assert labels == ['A', 'C', 'G', 'T', 'match']
+    plt.close(fig)
+
+
+def test_default_plotter_legend_hook_is_noop():
+    # The base hook draws nothing, so --legend is harmless in non-depth modes.
+    plotter = DefaultPlotter(**_PLOTTER_KWARGS)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    assert plotter._drawLegend(ax) is None
+    assert len(fig.axes) == 1
+    plt.close(fig)
