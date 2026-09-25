@@ -10,6 +10,8 @@ import numpy as np
 from matplotlib import cm
 from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
+from matplotlib.colors import Normalize
+from matplotlib.lines import Line2D
 
 from concatmap.struct import PlacedRead
 from concatmap.struct import PolarCoordinate
@@ -20,6 +22,7 @@ from concatmap.typing import Array1D
 from concatmap.utils import AngularCoordinatesInterpolator
 from concatmap.utils import Debug
 from concatmap.utils import PositionToAngleConverter
+from concatmap.utils import minmax
 from concatmap.utils import normalize
 
 
@@ -52,6 +55,22 @@ class AbstractPlotter(abc.ABC):
     # alias into a moire; a higher save resolution suppresses it.
     DPI = 300
 
+    # Legend/colorbar text is set in points, which don't scale with fig_size
+    # (inches) the way the plot geometry does; at large fig_size the default
+    # matplotlib font shrinks to illegible relative to the figure. Scale it
+    # off the fig_size at which the default matplotlib font size (10pt) looks
+    # right.
+    _REFERENCE_FIG_SIZE = 10.0
+    _BASE_FONTSIZE = 10.0
+
+    @property
+    def _legend_scale(self) -> float:
+        return self.fig_size / self._REFERENCE_FIG_SIZE
+
+    @property
+    def _legend_font_size(self) -> float:
+        return self._BASE_FONTSIZE * self._legend_scale
+
     def __init__(
             self,
             *,
@@ -63,6 +82,7 @@ class AbstractPlotter(abc.ABC):
             circle_size: float,
             include_clipped_reads: bool,
             figure_file: Path,
+            legend: bool = False,
     ) -> None:
         self.reads = reads
         self.reference_length = reference_length
@@ -73,6 +93,7 @@ class AbstractPlotter(abc.ABC):
         self.circle_size = circle_size
         self.include_clipped_reads = include_clipped_reads
         self.figure_file = figure_file
+        self.legend = legend
 
     @abc.abstractmethod
     def _drawLineSegment(
@@ -91,6 +112,8 @@ class AbstractPlotter(abc.ABC):
             if self.include_clipped_reads:
                 self._drawClippedReads(ax)
             self._drawReads(ax)
+            if self.legend:
+                self._drawLegend(ax)
             self._saveFigure()
 
     def _setup(self) -> plt.Axes:
@@ -101,6 +124,7 @@ class AbstractPlotter(abc.ABC):
         ax.set_yticklabels([])
         ax.set_xticklabels([])
         ax.set_theta_zero_location('N')
+        ax.set_theta_direction(-1)
         ax.set_facecolor('white')
         ax.axis('off')
         return ax
@@ -139,8 +163,10 @@ class AbstractPlotter(abc.ABC):
             self._drawLineSegment(ax, thetas, radii, placed.read)
 
     def _saveFigure(self) -> None:
-        # TODO: Flip image so it is cw instead of ccw?
         plt.savefig(self.figure_file, bbox_inches='tight', dpi=self.DPI)
+
+    def _drawLegend(self, ax: plt.Axes) -> None:
+        """Hook: draw a legend/key. No-op unless a subclass provides one."""
 
     def _convertReadsToLineSegments(
             self,
@@ -200,11 +226,12 @@ class MulticolorLinePlotter(AbstractPlotter):
                 Or a list of values for each reference sequence position to be
                 normalized and projected on the color map.
         """
-        self.interpolator = (
-            values
-            if callable(values)
-            else AngularCoordinatesInterpolator(normalize(values))
-        )
+        if callable(values):
+            self.interpolator = values
+            self._value_range = None            # no absolute domain to label
+        else:
+            self._value_range = minmax(values)  # (vmin, vmax) in real depth units
+            self.interpolator = AngularCoordinatesInterpolator(normalize(values))
         super().__init__(**kwargs)
 
     def _drawLineSegment(
@@ -223,6 +250,30 @@ class MulticolorLinePlotter(AbstractPlotter):
         )
         ax.add_collection(segments)
         ax.set_rmax(radii[0])  # TODO: just set this once at the end
+
+    def _drawLegend(self, ax: plt.Axes) -> None:
+        # Rebuild the depth -> color mapping the line segments use
+        # (plasma((d - vmin) / (vmax - vmin))) as a standalone colorbar. The bar
+        # is scaled to this plot's own min/max depth, so its ticks are absolute
+        # coverage values but the scale is relative between plots.
+        if self._value_range is None:
+            return  # callable values: no absolute depth scale to label
+        vmin, vmax = self._value_range
+        mappable = cm.ScalarMappable(norm=Normalize(vmin, vmax), cmap=cm.plasma)
+        cbar = ax.figure.colorbar(
+            mappable,
+            ax=ax,
+            fraction=0.046,
+            pad=0.04,
+            shrink=0.6,
+        )
+        cbar.set_label(
+            'Read depth',
+            rotation=270,
+            labelpad=15 * self._legend_scale,
+            fontsize=self._legend_font_size,
+        )
+        cbar.ax.tick_params(labelsize=self._legend_font_size)
 
 
 IGV_BASE_COLORS: dict[str, str] = {
@@ -272,3 +323,23 @@ class MismatchPlotter(AbstractPlotter):
             )
             arc_thetas, arc_radii = self._linearize(base_arc, self._MISMATCH_ARC_POINTS)
             ax.plot(arc_thetas, arc_radii, color=color, linewidth=self.line_width)
+
+    def _drawLegend(self, ax: plt.Axes) -> None:
+        # A discrete key: one line swatch per substituted base in its IGV color,
+        # plus the gray used where the read matches the reference. Line2D proxies
+        # mirror how reads are drawn (colored line segments).
+        handles = [
+            Line2D([], [], color=color, linewidth=3, label=base)
+            for base, color in self.BASE_COLORS.items()
+        ]
+        handles.append(
+            Line2D([], [], color=self.LINE_COLOR, linewidth=3, label='match'))
+        ax.legend(
+            handles=handles,
+            title='Base',
+            loc='center left',
+            bbox_to_anchor=(1.0, 0.5),
+            frameon=False,
+            fontsize=self._legend_font_size,
+            title_fontsize=self._legend_font_size,
+        )

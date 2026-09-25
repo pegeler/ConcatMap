@@ -261,5 +261,6 @@ def concatmap(args: Namespace, logger: logging.Logger) -> None:
         circle_size=args.circle_size,
         include_clipped_reads=args.include_clipped_reads,
         figure_file=figure_file,
+        legend=args.legend,
     )
     plotter.plot()

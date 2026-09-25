@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'concatmap'
-version = '2.0.0'
+version = '2.0.1'
 authors = [
     {name = 'Daryl Gohl'},
     {name = 'Paul W. Egeler, M.S.'},
