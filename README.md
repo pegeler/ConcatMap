@@ -24,33 +24,6 @@ It's recommended to do this within a virtual environment.
 pip install git+https://github.com/darylgohl/ConcatMap.git
 ```
 
-## Running from Docker
-
-The image bundles Python, ConcatMap, and minimap2, so nothing else needs to be
-installed. Build it once from a checkout of this repository:
-
-```bash
-docker build -t concatmap .
-```
-
-Then you can run `concatmap` from inside a container by prepending this to any
-`concatmap` command in the sections below:
-
-```bash
-docker run --rm -v "$PWD":/data --user "$(id -u):$(id -g)" concatmap
-```
-
-It mounts your current directory at `/data` (the container's working
-directory), so relative paths in `-q`, `-r`, and `-o` resolve as usual and
-outputs land back in your directory. Everything after `concatmap` is
-unchanged. For example, `concatmap -q reads.fastq -r reference.fasta -f png`
-becomes:
-
-```bash
-docker run --rm -v "$PWD":/data --user "$(id -u):$(id -g)" concatmap \
-    -q reads.fastq -r reference.fasta -f png
-```
-
 ## Usage
 
 ```
@@ -184,6 +157,33 @@ width. Write the output somewhere specific with `-o`/`-n`:
 concatmap -q reads.fastq -r reference.fasta -m 1000 -f png \
           -s 50 -c 0.5 -l 0.02 -w 1.5 \
           -o plots -n my_plasmid
+```
+
+### Running from Docker
+
+The image bundles Python, ConcatMap, and minimap2, so nothing else needs to be
+installed. Build it once from a checkout of this repository:
+
+```bash
+docker build -t concatmap .
+```
+
+Then you can run `concatmap` from inside a container by prepending this to any
+`concatmap` command above:
+
+```bash
+docker run --rm -v "$PWD":/data --user "$(id -u):$(id -g)" concatmap
+```
+
+It mounts your current directory at `/data` (the container's working
+directory), so relative paths in `-q`, `-r`, and `-o` resolve as usual and
+outputs land back in your directory. Everything after `concatmap` is
+unchanged. For example, `concatmap -q reads.fastq -r reference.fasta -f png`
+becomes:
+
+```bash
+docker run --rm -v "$PWD":/data --user "$(id -u):$(id -g)" concatmap \
+    -q reads.fastq -r reference.fasta -f png
 ```
 
 ## Gallery
