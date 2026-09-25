@@ -17,6 +17,7 @@ import logging
 from pathlib import Path
 from typing import NoReturn
 
+import concatmap
 from concatmap import mapper
 from concatmap import plot
 from concatmap import utils
@@ -137,6 +138,12 @@ def parse_args(argv=None) -> argparse.Namespace:
         action='store_true',
         help='Draw a legend/key on the plot: a coverage colorbar with --depth, '
              'or a base-color key with --by_base. Has no effect in other modes.')
+    p.add_argument(
+        '--version',
+        action='version',
+        # The install path exposes a shadowing copy earlier on PATH.
+        version=f'%(prog)s {concatmap.__version__} '
+                f'({Path(concatmap.__file__).parent})')
     p.add_argument(
         '--debug',
         action='store_true',

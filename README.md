@@ -24,6 +24,33 @@ It's recommended to do this within a virtual environment.
 pip install git+https://github.com/darylgohl/ConcatMap.git
 ```
 
+## Running from Docker
+
+The image bundles Python, ConcatMap, and minimap2, so nothing else needs to be
+installed. Build it once from a checkout of this repository:
+
+```bash
+docker build -t concatmap .
+```
+
+Then you can run `concatmap` from inside a container by prepending this to any
+`concatmap` command in the sections below:
+
+```bash
+docker run --rm -v "$PWD":/data --user "$(id -u):$(id -g)" concatmap
+```
+
+It mounts your current directory at `/data` (the container's working
+directory), so relative paths in `-q`, `-r`, and `-o` resolve as usual and
+outputs land back in your directory. Everything after `concatmap` is
+unchanged. For example, `concatmap -q reads.fastq -r reference.fasta -f png`
+becomes:
+
+```bash
+docker run --rm -v "$PWD":/data --user "$(id -u):$(id -g)" concatmap \
+    -q reads.fastq -r reference.fasta -f png
+```
+
 ## Usage
 
 ```
@@ -31,7 +58,7 @@ usage: concatmap [-h] -q QUERY_FILE -r REFERENCE_FILE [-o OUTPUT_DIR]
                  [-n OUTPUT_NAME] [-m MIN_LENGTH] [-l LINE_SPACING]
                  [-w LINE_WIDTH] [-c CIRCLE_SIZE] [-s FIG_SIZE] [-x]
                  [-f {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}]
-                 [-u | -d | -b] [-L]
+                 [-u | -d | -b] [-L] [--version]
 
 ConcatMap Command Line Interface
 ================================
@@ -85,6 +112,7 @@ options:
   -L, --legend          Draw a legend/key on the plot: a coverage colorbar with
                         --depth, or a base-color key with --by_base. Has no
                         effect in other modes.
+  --version             show program's version number and exit
 ```
 
 ### Examples
