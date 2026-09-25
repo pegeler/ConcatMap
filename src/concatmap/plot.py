@@ -55,6 +55,22 @@ class AbstractPlotter(abc.ABC):
     # alias into a moire; a higher save resolution suppresses it.
     DPI = 300
 
+    # Legend/colorbar text is set in points, which don't scale with fig_size
+    # (inches) the way the plot geometry does; at large fig_size the default
+    # matplotlib font shrinks to illegible relative to the figure. Scale it
+    # off the fig_size at which the default matplotlib font size (10pt) looks
+    # right.
+    _REFERENCE_FIG_SIZE = 10.0
+    _BASE_FONTSIZE = 10.0
+
+    @property
+    def _legend_scale(self) -> float:
+        return self.fig_size / self._REFERENCE_FIG_SIZE
+
+    @property
+    def _legend_font_size(self) -> float:
+        return self._BASE_FONTSIZE * self._legend_scale
+
     def __init__(
             self,
             *,
@@ -108,6 +124,7 @@ class AbstractPlotter(abc.ABC):
         ax.set_yticklabels([])
         ax.set_xticklabels([])
         ax.set_theta_zero_location('N')
+        ax.set_theta_direction(-1)
         ax.set_facecolor('white')
         ax.axis('off')
         return ax
@@ -146,7 +163,6 @@ class AbstractPlotter(abc.ABC):
             self._drawLineSegment(ax, thetas, radii, placed.read)
 
     def _saveFigure(self) -> None:
-        # TODO: Flip image so it is cw instead of ccw?
         plt.savefig(self.figure_file, bbox_inches='tight', dpi=self.DPI)
 
     def _drawLegend(self, ax: plt.Axes) -> None:
@@ -245,8 +261,19 @@ class MulticolorLinePlotter(AbstractPlotter):
         vmin, vmax = self._value_range
         mappable = cm.ScalarMappable(norm=Normalize(vmin, vmax), cmap=cm.plasma)
         cbar = ax.figure.colorbar(
-            mappable, ax=ax, fraction=0.046, pad=0.04, shrink=0.6)
-        cbar.set_label('Read depth', rotation=270, labelpad=15)
+            mappable,
+            ax=ax,
+            fraction=0.046,
+            pad=0.04,
+            shrink=0.6,
+        )
+        cbar.set_label(
+            'Read depth',
+            rotation=270,
+            labelpad=15 * self._legend_scale,
+            fontsize=self._legend_font_size,
+        )
+        cbar.ax.tick_params(labelsize=self._legend_font_size)
 
 
 IGV_BASE_COLORS: dict[str, str] = {
@@ -308,5 +335,11 @@ class MismatchPlotter(AbstractPlotter):
         handles.append(
             Line2D([], [], color=self.LINE_COLOR, linewidth=3, label='match'))
         ax.legend(
-            handles=handles, title='Base', loc='center left',
-            bbox_to_anchor=(1.0, 0.5), frameon=False)
+            handles=handles,
+            title='Base',
+            loc='center left',
+            bbox_to_anchor=(1.0, 0.5),
+            frameon=False,
+            fontsize=self._legend_font_size,
+            title_fontsize=self._legend_font_size,
+        )
