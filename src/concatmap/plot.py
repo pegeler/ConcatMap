@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.colors import Normalize
 from matplotlib.lines import Line2D
+from matplotlib.ticker import MaxNLocator
 
 from concatmap.struct import PlacedRead
 from concatmap.struct import PolarCoordinate
@@ -55,21 +56,34 @@ class AbstractPlotter(abc.ABC):
     # alias into a moire; a higher save resolution suppresses it.
     DPI = 300
 
-    # Legend/colorbar text is set in points, which don't scale with fig_size
-    # (inches) the way the plot geometry does; at large fig_size the default
-    # matplotlib font shrinks to illegible relative to the figure. Scale it
-    # off the fig_size at which the default matplotlib font size (10pt) looks
-    # right.
+    # Legend and tick-label text is set in points, which don't scale with
+    # fig_size (inches) the way the plot geometry does; at large fig_size the
+    # default matplotlib font shrinks to illegible relative to the figure. Scale
+    # it off the fig_size at which the default matplotlib font size (10pt)
+    # looks right.
     _REFERENCE_FIG_SIZE = 10.0
     _BASE_FONTSIZE = 10.0
 
+    # Position ticks ring the outside of the read stack. Lengths are fractions
+    # of the stack's outer radius, because the stack grows with read count and
+    # a fixed radial length would vanish on deep datasets.
+    _TICK_TARGET_COUNT = 12
+    _TICK_LENGTH_FRACTION = 0.015
+    _TICK_LABEL_PAD_FRACTION = 0.01
+    _TICK_LINEWIDTH = 1.0
+
     @property
-    def _legend_scale(self) -> float:
+    def _text_scale(self) -> float:
         return self.fig_size / self._REFERENCE_FIG_SIZE
 
     @property
-    def _legend_font_size(self) -> float:
-        return self._BASE_FONTSIZE * self._legend_scale
+    def _text_font_size(self) -> float:
+        return self._BASE_FONTSIZE * self._text_scale
+
+    @property
+    def _outer_radius(self) -> float:
+        # One spacing past the last read, matching _convertReadsToLineSegments.
+        return self.circle_size + self.line_spacing * (len(self.reads) + 1)
 
     def __init__(
             self,
@@ -83,6 +97,7 @@ class AbstractPlotter(abc.ABC):
             include_clipped_reads: bool,
             figure_file: Path,
             legend: bool = False,
+            ticks: bool = False,
     ) -> None:
         self.reads = reads
         self.reference_length = reference_length
@@ -94,6 +109,7 @@ class AbstractPlotter(abc.ABC):
         self.include_clipped_reads = include_clipped_reads
         self.figure_file = figure_file
         self.legend = legend
+        self.ticks = ticks
 
     @abc.abstractmethod
     def _drawLineSegment(
@@ -112,6 +128,8 @@ class AbstractPlotter(abc.ABC):
             if self.include_clipped_reads:
                 self._drawClippedReads(ax)
             self._drawReads(ax)
+            if self.ticks:
+                self._drawTicks(ax)
             if self.legend:
                 self._drawLegend(ax)
             self._saveFigure()
@@ -161,6 +179,82 @@ class AbstractPlotter(abc.ABC):
         for placed in placed_reads:
             thetas, radii = self._linearize(placed.curve)
             self._drawLineSegment(ax, thetas, radii, placed.read)
+
+    def _drawTicks(self, ax: plt.Axes) -> None:
+        # Geometry (conv, radii) is shared by every plotter, so ticks live in
+        # the base class rather than a per-plotter hook. Position 0 sits at 12
+        # o'clock, matching the origin of the angle converter.
+        # Radial limits autoscale lazily (unless a plotter pins them), and tick
+        # lines still count toward the data limits even with scaley=False.
+        # Resolve the limit from the reads alone and pin it, so ticks can't
+        # shrink the plot and later layout (legend) measures a final scale.
+        ax.set_rmax(ax.get_rmax())
+        tick_length = self._TICK_LENGTH_FRACTION * self._outer_radius
+        label_pad = self._TICK_LABEL_PAD_FRACTION * self._outer_radius
+        inner = self._outer_radius
+        outer = inner + tick_length
+        for position in self._tickPositions():
+            theta = self.conv(position)
+            # Ticks fall outside the polar axes' data limits: don't clip them,
+            # and don't let them rescale the radial axis (which would shrink
+            # the reads relative to a plot without ticks).
+            ax.plot(
+                [theta, theta],
+                [inner, outer],
+                color=self.BASIS_COLOR,
+                linewidth=self._TICK_LINEWIDTH,
+                clip_on=False,
+                scalex=False,
+                scaley=False,
+            )
+            ha, va = self._tickLabelAlignment(theta)
+            ax.text(
+                theta,
+                outer + label_pad,
+                f'{position:,}',
+                ha=ha,
+                va=va,
+                fontsize=self._text_font_size,
+            )
+
+    def _tickPositions(self) -> list[int]:
+        # MaxNLocator picks round 1/2/2.5/5 x 10^k steps, so labels read as
+        # 0, 500, 1000, ... whatever the reference length. The end of the
+        # range coincides with position 0 on a circle, so it is dropped.
+        locator = MaxNLocator(
+            nbins=self._TICK_TARGET_COUNT,
+            steps=[1, 2, 2.5, 5, 10],
+            integer=True,
+        )
+        return [
+            int(position)
+            for position in locator.tick_values(0, self.reference_length)
+            if 0 <= position < self.reference_length
+        ]
+
+    @staticmethod
+    def _contentRight(ax: plt.Axes) -> float:
+        """
+        Right edge of the text drawn outside the axes (tick labels), in axes
+        coordinates and never less than 1. A legend anchored here clears the
+        labels however wide they are, instead of guessing a fixed pad.
+        """
+        to_axes = ax.transAxes.inverted()
+        return max([
+            1.0,
+            *(to_axes.transform((t.get_window_extent().x1, 0))[0]
+              for t in ax.texts),
+        ])
+
+    @staticmethod
+    def _tickLabelAlignment(theta: float) -> tuple[str, str]:
+        # Anchor each label on the side facing away from the circle so text
+        # grows outward instead of back over the tick. theta runs clockwise
+        # from 12 o'clock, so x = sin(theta) and y = cos(theta).
+        x, y = math.sin(theta), math.cos(theta)
+        ha = 'left' if x > 0.3 else 'right' if x < -0.3 else 'center'
+        va = 'bottom' if y > 0.3 else 'top' if y < -0.3 else 'center'
+        return ha, va
 
     def _saveFigure(self) -> None:
         plt.savefig(self.figure_file, bbox_inches='tight', dpi=self.DPI)
@@ -264,16 +358,16 @@ class MulticolorLinePlotter(AbstractPlotter):
             mappable,
             ax=ax,
             fraction=0.046,
-            pad=0.04,
+            pad=0.04 + self._contentRight(ax) - 1.0,
             shrink=0.6,
         )
         cbar.set_label(
             'Read depth',
             rotation=270,
-            labelpad=15 * self._legend_scale,
-            fontsize=self._legend_font_size,
+            labelpad=15 * self._text_scale,
+            fontsize=self._text_font_size,
         )
-        cbar.ax.tick_params(labelsize=self._legend_font_size)
+        cbar.ax.tick_params(labelsize=self._text_font_size)
 
 
 IGV_BASE_COLORS: dict[str, str] = {
@@ -338,8 +432,8 @@ class MismatchPlotter(AbstractPlotter):
             handles=handles,
             title='Base',
             loc='center left',
-            bbox_to_anchor=(1.0, 0.5),
+            bbox_to_anchor=(self._contentRight(ax), 0.5),
             frameon=False,
-            fontsize=self._legend_font_size,
-            title_fontsize=self._legend_font_size,
+            fontsize=self._text_font_size,
+            title_fontsize=self._text_font_size,
         )

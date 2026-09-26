@@ -139,6 +139,11 @@ def parse_args(argv=None) -> argparse.Namespace:
         help='Draw a legend/key on the plot: a coverage colorbar with --depth, '
              'or a base-color key with --by_base. Has no effect in other modes.')
     p.add_argument(
+        '-t', '--ticks',
+        action='store_true',
+        help='Draw reference position ticks and labels around the outside of '
+             'the plot, with position 0 at 12 o\'clock.')
+    p.add_argument(
         '--version',
         action='version',
         # The install path exposes a shadowing copy earlier on PATH.
