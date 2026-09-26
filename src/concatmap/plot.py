@@ -184,6 +184,11 @@ class AbstractPlotter(abc.ABC):
         # Geometry (conv, radii) is shared by every plotter, so ticks live in
         # the base class rather than a per-plotter hook. Position 0 sits at 12
         # o'clock, matching the origin of the angle converter.
+        # Radial limits autoscale lazily (unless a plotter pins them), and tick
+        # lines still count toward the data limits even with scaley=False.
+        # Resolve the limit from the reads alone and pin it, so ticks can't
+        # shrink the plot and later layout (legend) measures a final scale.
+        ax.set_rmax(ax.get_rmax())
         tick_length = self._TICK_LENGTH_FRACTION * self._outer_radius
         label_pad = self._TICK_LABEL_PAD_FRACTION * self._outer_radius
         inner = self._outer_radius
@@ -226,6 +231,20 @@ class AbstractPlotter(abc.ABC):
             for position in locator.tick_values(0, self.reference_length)
             if 0 <= position < self.reference_length
         ]
+
+    @staticmethod
+    def _contentRight(ax: plt.Axes) -> float:
+        """
+        Right edge of the text drawn outside the axes (tick labels), in axes
+        coordinates and never less than 1. A legend anchored here clears the
+        labels however wide they are, instead of guessing a fixed pad.
+        """
+        to_axes = ax.transAxes.inverted()
+        return max([
+            1.0,
+            *(to_axes.transform((t.get_window_extent().x1, 0))[0]
+              for t in ax.texts),
+        ])
 
     @staticmethod
     def _tickLabelAlignment(theta: float) -> tuple[str, str]:
@@ -339,7 +358,7 @@ class MulticolorLinePlotter(AbstractPlotter):
             mappable,
             ax=ax,
             fraction=0.046,
-            pad=0.04,
+            pad=0.04 + self._contentRight(ax) - 1.0,
             shrink=0.6,
         )
         cbar.set_label(
@@ -413,7 +432,7 @@ class MismatchPlotter(AbstractPlotter):
             handles=handles,
             title='Base',
             loc='center left',
-            bbox_to_anchor=(1.0, 0.5),
+            bbox_to_anchor=(self._contentRight(ax), 0.5),
             frameon=False,
             fontsize=self._text_font_size,
             title_fontsize=self._text_font_size,

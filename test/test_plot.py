@@ -140,6 +140,38 @@ def test_draw_ticks_adds_a_tick_and_label_per_position_without_rescaling():
     plt.close(fig)
 
 
+def test_ticks_do_not_rescale_an_autoscaled_radial_axis():
+    # Default and by-base plots leave rmax to lazy autoscale; ticks (which sit
+    # past the reads) must not be folded into it.
+    plotter = _plotter_for_length(1000)
+    rmax = []
+    for with_ticks in (False, True):
+        fig = plt.figure()
+        ax = fig.add_subplot(111, polar=True)
+        ax.plot([0, 1], [0.1, 0.3])
+        if with_ticks:
+            plotter._drawTicks(ax)
+        rmax.append(ax.get_rmax())
+        plt.close(fig)
+    assert rmax[0] == rmax[1]
+
+
+def test_legend_clears_tick_labels():
+    plotter = MismatchPlotter(**{**_PLOTTER_KWARGS, 'reference_length': 1000})
+    fig = plt.figure()
+    ax = fig.add_subplot(111, polar=True)
+    ax.set_rmax(plotter.circle_size)  # as with reads: the stack fills the axes
+    assert plotter._contentRight(ax) == 1.0  # no labels: legend stays put
+    plotter._drawTicks(ax)
+    right = plotter._contentRight(ax)
+    assert right > 1.0
+    plotter._drawLegend(ax)
+    anchor_x = ax.get_legend().get_bbox_to_anchor().transformed(
+        ax.transAxes.inverted()).x0
+    assert anchor_x == right
+    plt.close(fig)
+
+
 def test_ticks_are_off_by_default():
     assert DefaultPlotter(**_PLOTTER_KWARGS).ticks is False
 
