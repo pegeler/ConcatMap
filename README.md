@@ -31,7 +31,7 @@ usage: concatmap [-h] -q QUERY_FILE -r REFERENCE_FILE [-o OUTPUT_DIR]
                  [-n OUTPUT_NAME] [-m MIN_LENGTH] [-l LINE_SPACING]
                  [-w LINE_WIDTH] [-c CIRCLE_SIZE] [-s FIG_SIZE] [-x]
                  [-f {eps,jpeg,jpg,pdf,pgf,png,ps,raw,rgba,svg,svgz,tif,tiff}]
-                 [-u | -d | -b] [-L] [--version]
+                 [-u | -d | -b] [-L] [-t] [--version]
 
 ConcatMap Command Line Interface
 ================================
@@ -85,6 +85,8 @@ options:
   -L, --legend          Draw a legend/key on the plot: a coverage colorbar with
                         --depth, or a base-color key with --by_base. Has no
                         effect in other modes.
+  -t, --ticks           Draw reference position ticks and labels around the
+                        outside of the plot, with position 0 at 12 o'clock.
   --version             show program's version number and exit
 ```
 
@@ -139,6 +141,17 @@ Add `-L`/`--legend` to draw a key mapping each nucleotide color to its base
 
 ```bash
 concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -b -L
+```
+
+**Label reference positions.** `-t` draws ticks and position labels around the
+outside of the plot, starting with position 0 at 12 o'clock and running
+clockwise. It works with every view mode. Reads are mapped to the reference
+concatenated with itself, so a label of 1000 marks both position 1000 and
+position 1000 plus the reference length; a read covering the second copy wraps
+onto the same angles:
+
+```bash
+concatmap -q reads.fastq -r reference.fasta -m 1000 -f png -t
 ```
 
 **Skip sorting for a quick look.** `-u` plots from the unsorted sam file,

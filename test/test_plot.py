@@ -1,4 +1,5 @@
 """Unit tests for the pure coloring decisions in ``plot``."""
+import math
 from pathlib import Path
 
 import matplotlib
@@ -95,6 +96,52 @@ def test_by_base_legend_draws_a_base_color_key():
     labels = [t.get_text() for t in legend.get_texts()]
     assert labels == ['A', 'C', 'G', 'T', 'match']
     plt.close(fig)
+
+
+def _plotter_for_length(reference_length: int) -> DefaultPlotter:
+    return DefaultPlotter(**{
+        **_PLOTTER_KWARGS,
+        'reference_length': reference_length,
+    })
+
+
+def test_tick_positions_are_round_and_exclude_the_wraparound():
+    positions = _plotter_for_length(5000)._tickPositions()
+    assert positions[0] == 0
+    assert all(p < 5000 for p in positions)
+    steps = {b - a for a, b in zip(positions, positions[1:])}
+    assert steps == {500}
+
+
+def test_tick_positions_adapt_to_reference_length():
+    positions = _plotter_for_length(16569)._tickPositions()  # human mtDNA
+    assert positions[:3] == [0, 2000, 4000]
+    assert len(positions) <= DefaultPlotter._TICK_TARGET_COUNT + 1
+
+
+def test_tick_label_alignment_faces_away_from_the_circle():
+    align = DefaultPlotter._tickLabelAlignment
+    assert align(0.0) == ('center', 'bottom')         # 12 o'clock
+    assert align(math.pi / 2) == ('left', 'center')   # 3 o'clock (clockwise)
+    assert align(math.pi) == ('center', 'top')        # 6 o'clock
+    assert align(3 * math.pi / 2) == ('right', 'center')
+
+
+def test_draw_ticks_adds_a_tick_and_label_per_position_without_rescaling():
+    plotter = _plotter_for_length(1000)
+    fig = plt.figure()
+    ax = fig.add_subplot(111, polar=True)
+    ax.set_rmax(1.0)
+    plotter._drawTicks(ax)
+    n = len(plotter._tickPositions())
+    assert len(ax.lines) == n
+    assert [t.get_text() for t in ax.texts][:3] == ['0', '100', '200']
+    assert ax.get_rmax() == 1.0
+    plt.close(fig)
+
+
+def test_ticks_are_off_by_default():
+    assert DefaultPlotter(**_PLOTTER_KWARGS).ticks is False
 
 
 def test_default_plotter_legend_hook_is_noop():
